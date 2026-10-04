@@ -182,11 +182,6 @@ function seed() {
         { id: uid(), text: "Préparer les pièces : pièce d'identité, photo-signature numérique (e-photo), justificatif de domicile, attestation JDC si moins de 25 ans", done: false },
         { id: uid(), text: "Faire la demande de numéro NEPH sur le site de l'ANTS (souvent fait par l'auto-école)", done: false },
         { id: uid(), text: "Signer le contrat avec l'auto-école", done: false }
-      ] },
-      { id: uid(), title: 'Trouver un psychiatre', deadline: '2026-10-31', done: false, notes: 'Date limite modifiable. Passer par le médecin traitant permet un meilleur remboursement.', steps: [
-        { id: uid(), text: "Prendre rendez-vous avec mon médecin traitant pour une lettre d'orientation", done: false },
-        { id: uid(), text: 'Lister 3 psychiatres (Doctolib, annuaire santé Ameli) ou appeler le CMP de mon secteur (gratuit)', done: false },
-        { id: uid(), text: 'Appeler et réserver le premier rendez-vous', done: false }
       ] }
     ],
     reminders: [
@@ -616,7 +611,7 @@ Elan.register({
   function goalForm(g) {
     g = g || { title: '', deadline: '', notes: '', steps: [] };
     openSheet(`<h2>${g.id ? 'Modifier l\'objectif' : 'Nouvel objectif'}</h2>
-      <label for="gTitle">Objectif<input id="gTitle" name="title" required value="${esc(g.title)}" placeholder="Ex. Trouver un psychiatre"></label>
+      <label for="gTitle">Objectif<input id="gTitle" name="title" required value="${esc(g.title)}" placeholder="Ex. Réserver un rendez-vous"></label>
       <label for="gDeadline">Date limite<input id="gDeadline" type="date" name="deadline" value="${esc(g.deadline)}"></label>
       <label for="gSteps">Étapes, une par ligne<textarea id="gSteps" name="steps" rows="5">${esc((g.steps || []).map(s => s.text).join('\n'))}</textarea></label>
       <label for="gNotes">Notes<textarea id="gNotes" name="notes">${esc(g.notes)}</textarea></label>
