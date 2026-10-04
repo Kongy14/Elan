@@ -1,0 +1,15 @@
+{
+  "name": "Élan",
+  "short_name": "Élan",
+  "description": "Sport quotidien, routine genou, objectifs et rappels.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef1f0",
+  "theme_color": "#2346d8",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

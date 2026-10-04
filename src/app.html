@@ -1,0 +1,714 @@
+<title>Élan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout : appli mobile à onglets (barre fixe en bas), une colonne de 560px max, minuteur en plein écran par-dessus. */
+:root {
+  --bg: #eef1f0;
+  --surface: #ffffff;
+  --ink: #141c19;
+  --muted: #5d6b66;
+  --line: #d6dddb;
+  --accent: #2346d8;      /* effort */
+  --accent-ink: #ffffff;
+  --rest: #b86e00;        /* repos */
+  --ok: #1f7a4d;
+  --warn: #b5361f;
+  --knee: #0f7c86;        /* routine genou */
+  --soft: #e3e8f9;
+  --f-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", -apple-system, system-ui, sans-serif;
+  --r: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1412; --surface: #18201d; --ink: #e9efec; --muted: #98a6a0; --line: #2a3531;
+    --accent: #7d97ff; --accent-ink: #0b1030; --rest: #f0a83a; --ok: #5fd39a; --warn: #ff8a73;
+    --knee: #4fc7d1; --soft: #1e2744; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1412; --surface: #18201d; --ink: #e9efec; --muted: #98a6a0; --line: #2a3531;
+  --accent: #7d97ff; --accent-ink: #0b1030; --rest: #f0a83a; --ok: #5fd39a; --warn: #ff8a73;
+  --knee: #4fc7d1; --soft: #1e2744; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { background: var(--bg); color: var(--ink); }
+body { margin: 0; font-family: var(--f-body); font-size: 16px; line-height: 1.45; -webkit-tap-highlight-color: transparent; }
+main { max-width: 560px; margin: 0 auto; padding: 18px 16px calc(96px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 22px; }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+h1 { font-size: 30px; font-weight: 800; line-height: 1.1; }
+h2 { font-size: 20px; font-weight: 700; }
+h3 { font-size: 17px; font-weight: 700; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.small { font-size: 14px; }
+.eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+.stack { display: grid; gap: 10px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.spread { justify-content: space-between; }
+.section { display: grid; gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 10px; min-width: 0; }
+.hero-card { background: var(--accent); color: var(--accent-ink); border: 0; }
+.hero-card .muted { color: inherit; opacity: .8; }
+.knee-card { border-left: 5px solid var(--knee); }
+button, .btn { font: inherit; font-weight: 700; border: 0; border-radius: 12px; padding: 12px 16px; cursor: pointer; background: var(--soft); color: var(--ink); min-height: 44px; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.primary { background: var(--accent); color: var(--accent-ink); }
+.hero-card .primary { background: var(--accent-ink); color: var(--accent); }
+.knee-btn { background: var(--knee); color: var(--surface); }
+.ghost { background: transparent; border: 1px solid var(--line); }
+.link { background: none; padding: 6px 0; min-height: 0; color: var(--accent); font-weight: 700; }
+.danger { color: var(--warn); }
+.full { width: 100%; }
+.pill { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; padding: 3px 9px; border-radius: 99px; background: var(--soft); color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pill.late { background: var(--warn); color: var(--surface); }
+.pill.soon { background: var(--rest); color: var(--surface); }
+.pill.ok { background: var(--ok); color: var(--surface); }
+.item { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start; padding: 12px 0; border-top: 1px solid var(--line); }
+.item:first-child { border-top: 0; padding-top: 2px; }
+.item > div { min-width: 0; }
+.item .t { font-weight: 700; overflow-wrap: anywhere; }
+.check { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--muted); background: transparent; padding: 0; min-height: 0; display: grid; place-items: center; }
+.check.on { background: var(--ok); border-color: var(--ok); color: var(--surface); }
+.check svg { width: 16px; height: 16px; }
+.done .t { text-decoration: line-through; color: var(--muted); }
+.bar { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--ok); border-radius: inherit; }
+.dots { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; }
+.dots i { aspect-ratio: 1; border-radius: 4px; background: var(--line); max-width: 100%; }
+.dots i.s { background: var(--accent); }
+.dots i.k { background: var(--knee); }
+.dots i.sk { background: linear-gradient(135deg, var(--accent) 50%, var(--knee) 50%); }
+.exlist { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.exlist li { padding: 10px 0; border-top: 1px solid var(--line); display: grid; gap: 2px; }
+.exlist li:first-child { border-top: 0; }
+.seg { display: flex; background: var(--soft); border-radius: 12px; padding: 4px; gap: 4px; }
+.seg button { flex: 1; background: transparent; padding: 8px; min-height: 38px; font-size: 14px; }
+.seg button.on { background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.note { font-size: 14px; color: var(--muted); border-left: 3px solid var(--line); padding-left: 10px; }
+.sources a { color: var(--accent); overflow-wrap: anywhere; }
+label { display: grid; gap: 4px; font-size: 14px; font-weight: 700; }
+input, select, textarea { font: inherit; font-weight: 400; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); width: 100%; min-height: 44px; }
+textarea { min-height: 90px; resize: vertical; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+/* Barre d'onglets */
+nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: var(--surface); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(var(--n, 4), 1fr); padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); }
+nav.tabs button { background: none; display: grid; justify-items: center; gap: 2px; padding: 6px 2px; font-size: 12px; color: var(--muted); border-radius: 10px; }
+nav.tabs button svg { width: 24px; height: 24px; }
+nav.tabs button.on { color: var(--accent); }
+/* Feuille de saisie */
+dialog { border: 0; border-radius: 18px; padding: 0; width: min(520px, calc(100vw - 24px)); background: var(--surface); color: var(--ink); max-height: 88vh; }
+dialog::backdrop { background: rgba(10, 16, 14, .5); }
+dialog form { padding: 18px; display: grid; gap: 12px; }
+/* Minuteur plein écran */
+#runner { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: grid; grid-template-rows: auto 1fr auto; padding: calc(14px + env(safe-area-inset-top, 0px)) 16px calc(18px + env(safe-area-inset-bottom, 0px)); }
+#runner[data-phase="work"] { --ph: var(--accent); }
+#runner[data-phase="rest"], #runner[data-phase="prep"] { --ph: var(--rest); }
+#runner[data-phase="knee"] { --ph: var(--knee); }
+.rn-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.rn-mid { display: grid; align-content: center; justify-items: center; gap: 14px; text-align: center; max-width: 520px; margin: 0 auto; width: 100%; }
+.rn-phase { font-weight: 800; text-transform: uppercase; letter-spacing: .12em; font-size: 14px; color: var(--ph); }
+.rn-name { font-family: var(--f-display); font-size: 30px; font-weight: 800; line-height: 1.1; }
+.rn-desc { color: var(--muted); max-width: 40ch; }
+.ring { position: relative; width: min(68vw, 290px); aspect-ratio: 1; max-width: 100%; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .track { stroke: var(--line); }
+.ring .prog { stroke: var(--ph); transition: stroke-dashoffset .25s linear; }
+.ring .num { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--f-display); font-weight: 800; font-size: clamp(54px, 18vw, 86px); font-variant-numeric: tabular-nums; }
+.ring .sub { position: absolute; left: 0; right: 0; bottom: 24%; font-size: 15px; color: var(--muted); font-weight: 700; }
+.rn-next { font-size: 15px; color: var(--muted); }
+.rn-ctrl { display: grid; grid-template-columns: 1fr 1.6fr 1fr; gap: 10px; max-width: 520px; margin: 0 auto; width: 100%; }
+.rn-ctrl .big { background: var(--ph); color: var(--surface); font-size: 18px; }
+.rn-bar { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; margin-top: 10px; }
+.rn-bar i { display: block; height: 100%; background: var(--ph); }
+@media (prefers-reduced-motion: reduce) { .ring .prog { transition: none; } }
+@media (max-width: 380px) { .grid3 { grid-template-columns: 1fr 1fr; } h1 { font-size: 26px; } }
+</style>
+
+<main id="app" aria-live="polite"></main>
+<nav class="tabs" id="tabs" aria-label="Sections"></nav>
+<div id="runner" hidden></div>
+
+<dialog id="sheet"><form id="sheetForm" method="dialog"></form></dialog>
+
+<script>
+/* ============================================================
+   Élan · appli perso modulaire (sport, organisation, ... langue plus tard)
+   Chaque module s'enregistre avec Elan.register({ id, label, icon, render, today }).
+   Les données restent sur l'appareil (localStorage).
+   ============================================================ */
+(function () {
+'use strict';
+
+/* ---------- Outils ---------- */
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const pad = (n) => String(n).padStart(2, '0');
+const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parseYmd = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const today = () => ymd(new Date());
+const addDays = (s, n) => { const d = parseYmd(s); d.setDate(d.getDate() + n); return ymd(d); };
+const daysBetween = (a, b) => Math.round((parseYmd(b) - parseYmd(a)) / 86400000);
+const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+const fmtLong = (s) => { const d = parseYmd(s); return `${JOURS[d.getDay()]} ${d.getDate()} ${MOIS[d.getMonth()]}`; };
+const fmtShort = (s) => { const d = parseYmd(s); return `${d.getDate()} ${MOIS[d.getMonth()].slice(0, 4).replace(/\.$/, '')}${MOIS[d.getMonth()].length > 4 ? '.' : ''}`; };
+const mmss = (sec) => { sec = Math.max(0, Math.ceil(sec)); return sec >= 60 ? `${Math.floor(sec / 60)}:${pad(sec % 60)}` : String(sec); };
+const inFrame = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+const ICON = {
+  today: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4.5" width="18" height="16" rx="3"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><circle cx="12" cy="15" r="2" fill="currentColor"/></svg>',
+  sport: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 13V9M10 2.5h4M18.5 6l1.5-1.5"/></svg>',
+  orga: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 4v17M5 4h11l-2 4 2 4H5"/></svg>',
+  settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+};
+
+/* ---------- Données ---------- */
+const KEY = 'elan.v1';
+function seed() {
+  return {
+    v: 1,
+    settings: { sound: true, voice: true, intensity: 'intense', kneeLevel: 1 },
+    sport: { done: {}, knee: {} },
+    goals: [
+      { id: uid(), title: "M'inscrire au permis de conduire", deadline: '2026-11-06', done: false, notes: "Objectif : inscription faite la première semaine de novembre.", steps: [
+        { id: uid(), text: 'Comparer 2 ou 3 auto-écoles (prix, avis, auto-école en ligne)', done: false },
+        { id: uid(), text: "Demander à mon conseiller France Travail les aides au permis et vérifier mes droits CPF (moncompteformation.gouv.fr)", done: false },
+        { id: uid(), text: "Préparer les pièces : pièce d'identité, photo-signature numérique (e-photo), justificatif de domicile, attestation JDC si moins de 25 ans", done: false },
+        { id: uid(), text: "Faire la demande de numéro NEPH sur le site de l'ANTS (souvent fait par l'auto-école)", done: false },
+        { id: uid(), text: "Signer le contrat avec l'auto-école", done: false }
+      ] },
+      { id: uid(), title: 'Trouver un psychiatre', deadline: '2026-10-31', done: false, notes: 'Date limite modifiable. Passer par le médecin traitant permet un meilleur remboursement.', steps: [
+        { id: uid(), text: "Prendre rendez-vous avec mon médecin traitant pour une lettre d'orientation", done: false },
+        { id: uid(), text: 'Lister 3 psychiatres (Doctolib, annuaire santé Ameli) ou appeler le CMP de mon secteur (gratuit)', done: false },
+        { id: uid(), text: 'Appeler et réserver le premier rendez-vous', done: false }
+      ] }
+    ],
+    reminders: [
+      { id: uid(), title: 'Actualisation France Travail', date: '2026-10-28', time: '10:00', repeat: 'monthly', note: "Exemple : vérifier la période exacte dans mon espace France Travail.", done: {} },
+      { id: uid(), title: 'Envoyer les documents demandés', date: addDays(today(), 1), time: '11:00', repeat: 'none', note: 'Exemple à adapter.', done: {} }
+    ]
+  };
+}
+let DB;
+function load() {
+  try { const raw = localStorage.getItem(KEY); DB = raw ? JSON.parse(raw) : seed(); }
+  catch (e) { DB = seed(); }
+  const s = seed();
+  DB.settings = Object.assign(s.settings, DB.settings || {});
+  DB.sport = Object.assign(s.sport, DB.sport || {});
+  DB.goals = DB.goals || []; DB.reminders = DB.reminders || [];
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) { /* stockage indisponible */ } }
+
+/* ---------- Son, voix, écran allumé ---------- */
+let actx = null;
+function audioUnlock() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); } catch (e) {} }
+function beep(freq = 880, dur = 0.12, vol = 0.25) {
+  if (!DB.settings.sound || !actx) return;
+  try { const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = freq; o.type = 'sine'; g.gain.value = vol; o.connect(g); g.connect(actx.destination); const t = actx.currentTime; g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur); o.start(t); o.stop(t + dur + 0.02); } catch (e) {}
+}
+function say(text) {
+  if (!DB.settings.voice || !('speechSynthesis' in window)) return;
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'fr-FR'; u.rate = 1.05; speechSynthesis.speak(u); } catch (e) {}
+}
+let wakeLock = null;
+async function keepAwake(on) {
+  try { if (on && 'wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); else if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; } } catch (e) {}
+}
+
+/* ---------- Registre des modules ---------- */
+const modules = [];
+const Elan = { register(m) { modules.push(m); }, modules, $, esc, uid, ymd, today, addDays, daysBetween, fmtLong, fmtShort, ICON, get db() { return DB; }, save, rerender: () => render() };
+window.Elan = Elan;
+let current = 'today';
+try { current = sessionStorage.getItem('elan.tab') || 'today'; } catch (e) {}
+function go(id) { current = id; try { sessionStorage.setItem('elan.tab', id); } catch (e) {} render(); window.scrollTo(0, 0); }
+Elan.go = go;
+
+function render() {
+  const tabs = $('#tabs');
+  tabs.style.setProperty('--n', modules.length);
+  tabs.innerHTML = modules.map(m => `<button type="button" data-tab="${m.id}" class="${m.id === current ? 'on' : ''}" aria-current="${m.id === current ? 'page' : 'false'}">${m.icon}<span>${esc(m.label)}</span></button>`).join('');
+  const mod = modules.find(m => m.id === current) || modules[0];
+  $('#app').innerHTML = mod.render();
+  mod.mount && mod.mount($('#app'));
+}
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-tab]'); if (t) go(t.dataset.tab);
+});
+
+/* ---------- Feuille de saisie générique ---------- */
+function openSheet(html, onSubmit, onMount) {
+  const dlg = $('#sheet'), form = $('#sheetForm');
+  form.innerHTML = html;
+  form.onsubmit = (e) => { e.preventDefault(); const action = e.submitter && e.submitter.value; if (action === 'cancel') { dlg.close(); return; } const fd = Object.fromEntries(new FormData(form)); if (onSubmit(fd, action) !== false) { dlg.close(); save(); render(); } };
+  onMount && onMount(form);
+  if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+}
+Elan.openSheet = openSheet;
+
+/* ============================================================
+   MOTEUR DE MINUTEUR
+   Étapes : { phase: 'prep'|'work'|'rest'|'knee', name, desc, kind: 'time'|'hold'|'reps', dur, reps, hold, relax }
+   ============================================================ */
+const Runner = (function () {
+  let steps = [], i = 0, startTs = 0, pausedAt = 0, paused = false, timer = null, lastSec = null, onFinish = null, title = '';
+  const R = 130, C = 2 * Math.PI * R;
+  function stepDur(s) { return s.kind === 'hold' ? s.reps * (s.hold + s.relax) : s.kind === 'reps' ? Infinity : s.dur; }
+  function totalTimed() { return steps.reduce((a, s) => a + (isFinite(stepDur(s)) ? stepDur(s) : 0), 0); }
+  function start(list, opts = {}) {
+    steps = list; i = 0; title = opts.title || 'Séance'; onFinish = opts.onFinish || null;
+    audioUnlock(); keepAwake(true);
+    $('#runner').hidden = false; document.body.style.overflow = 'hidden';
+    begin();
+    clearInterval(timer); timer = setInterval(tick, 200);
+  }
+  function begin() {
+    startTs = Date.now(); paused = false; lastSec = null;
+    const s = steps[i];
+    if (s.phase === 'work' || s.phase === 'knee') { beep(1320, 0.25); say(s.name + (s.kind === 'reps' ? `, ${s.reps} répétitions` : '')); }
+    else if (s.phase === 'rest') { beep(660, 0.25); const n = steps[i + 1]; say(n ? `Repos. Ensuite : ${n.name}` : 'Repos'); }
+    else if (s.phase === 'prep') { say(`${title}. Première étape : ${s.next || ''}`); }
+    draw();
+  }
+  function elapsed() { return ((paused ? pausedAt : Date.now()) - startTs) / 1000; }
+  function tick() {
+    if (paused) return;
+    const s = steps[i]; if (!s) return;
+    const d = stepDur(s), el = elapsed();
+    if (isFinite(d)) {
+      const left = d - el, sec = Math.ceil(left);
+      if (s.kind === 'hold') {
+        const cyc = s.hold + s.relax, k = Math.floor(el / cyc), inCyc = el - k * cyc;
+        const ph = inCyc < s.hold ? 'serre' : 'relâche';
+        if (ph !== s._ph) { s._ph = ph; beep(ph === 'serre' ? 990 : 520, 0.1, 0.18); }
+      } else if (sec !== lastSec && sec <= 3 && sec >= 1) beep(880, 0.1);
+      lastSec = sec;
+      if (left <= 0) return next();
+    }
+    draw();
+  }
+  function next() { if (i < steps.length - 1) { i++; begin(); } else finish(); }
+  function prev() { if (elapsed() > 3 || i === 0) begin(); else { i--; begin(); } }
+  function toggle() { if (paused) { startTs += Date.now() - pausedAt; paused = false; } else { pausedAt = Date.now(); paused = true; } draw(); }
+  function stop() { clearInterval(timer); keepAwake(false); try { speechSynthesis.cancel(); } catch (e) {} $('#runner').hidden = true; document.body.style.overflow = ''; }
+  function finish() {
+    clearInterval(timer); beep(1320, 0.18); setTimeout(() => beep(1760, 0.3), 200); say('Bravo, séance terminée.');
+    onFinish && onFinish();
+    $('#runner').dataset.phase = 'work';
+    $('#runner').innerHTML = `<div></div><div class="rn-mid"><p class="rn-phase">Terminé</p><p class="rn-name">Bien joué.</p><p class="rn-desc">${esc(title)} est enregistrée pour aujourd'hui.</p></div><div class="rn-ctrl"><span></span><button type="button" class="big" id="rnClose">Fermer</button><span></span></div>`;
+    $('#rnClose').onclick = () => { stop(); render(); };
+  }
+  function draw() {
+    const s = steps[i], d = stepDur(s), el = elapsed(), rn = $('#runner');
+    rn.dataset.phase = s.phase;
+    const label = { prep: 'Prépare-toi', work: 'Effort', rest: 'Repos', knee: 'Genou' }[s.phase];
+    let num = '', sub = '', frac = 0;
+    if (s.kind === 'reps') { num = '×' + s.reps; sub = 'tape « Fait » à la fin'; frac = 1; }
+    else if (s.kind === 'hold') {
+      const cyc = s.hold + s.relax, k = Math.min(s.reps - 1, Math.floor(el / cyc)), inCyc = el - k * cyc;
+      const holding = inCyc < s.hold;
+      num = mmss(holding ? s.hold - inCyc : cyc - inCyc); sub = `${holding ? 'Contracte' : 'Relâche'} · ${k + 1}/${s.reps}`; frac = el / d;
+    } else { num = mmss(d - el); frac = el / d; }
+    const n = steps.slice(i + 1).find(x => x.phase !== 'rest');
+    const doneT = steps.slice(0, i).reduce((a, x) => a + (isFinite(stepDur(x)) ? stepDur(x) : 0), 0) + (isFinite(d) ? Math.min(el, d) : 0);
+    const tot = totalTimed() || 1;
+    rn.innerHTML = `
+      <div>
+        <div class="rn-top"><button type="button" class="ghost" id="rnStop">Arrêter</button><span class="muted small">${esc(s.round || '')} · ${i + 1}/${steps.length}</span></div>
+        <div class="rn-bar"><i style="width:${Math.min(100, doneT / tot * 100).toFixed(1)}%"></i></div>
+      </div>
+      <div class="rn-mid">
+        <p class="rn-phase">${label}${paused ? ' · en pause' : ''}</p>
+        <p class="rn-name">${esc(s.phase === 'rest' ? 'Récupère' : s.phase === 'prep' ? title : s.name)}</p>
+        <div class="ring"><svg viewBox="0 0 300 300"><circle class="track" cx="150" cy="150" r="${R}" fill="none" stroke-width="16"/><circle class="prog" cx="150" cy="150" r="${R}" fill="none" stroke-width="16" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${(C * (1 - Math.min(1, frac))).toFixed(1)}"/></svg><div class="num">${num}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</div>
+        ${s.desc && s.phase !== 'rest' ? `<p class="rn-desc">${esc(s.desc)}</p>` : ''}
+        ${n ? `<p class="rn-next">Ensuite : <strong>${esc(n.name)}</strong>${n.kind === 'reps' ? ` (×${n.reps})` : n.kind === 'hold' ? ` (${n.reps} × ${n.hold} s)` : ` (${n.dur} s)`}</p>` : '<p class="rn-next">Dernière étape</p>'}
+      </div>
+      <div class="rn-ctrl">
+        <button type="button" id="rnPrev" aria-label="Étape précédente">Retour</button>
+        ${s.kind === 'reps' ? '<button type="button" class="big" id="rnNext">Fait</button>' : `<button type="button" class="big" id="rnPause">${paused ? 'Reprendre' : 'Pause'}</button>`}
+        <button type="button" id="${s.kind === 'reps' ? 'rnSkip' : 'rnNext'}" aria-label="Étape suivante">Passer</button>
+      </div>`;
+    $('#rnStop').onclick = () => { stop(); render(); };
+    $('#rnPrev').onclick = prev;
+    $('#rnNext').onclick = next;
+    const sk = $('#rnSkip'); if (sk) sk.onclick = next;
+    const p = $('#rnPause'); if (p) p.onclick = toggle;
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && !$('#runner').hidden) keepAwake(true); });
+  return { start, stepDur };
+})();
+Elan.Runner = Runner;
+
+/* ============================================================
+   MODULE : AUJOURD'HUI (agrège les autres modules)
+   ============================================================ */
+Elan.register({
+  id: 'today', label: "Aujourd'hui", icon: ICON.today,
+  render() {
+    const t = today();
+    const cards = modules.filter(m => m.today).map(m => m.today(t)).join('');
+    const h = new Date().getHours();
+    const hello = h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
+    return `<header class="stack"><p class="eyebrow">${esc(fmtLong(t))}</p><h1>${hello} Jules.</h1></header>${cards}`;
+  },
+  mount(el) { modules.forEach(m => m.mountToday && m.mountToday(el)); }
+});
+
+/* ============================================================
+   MODULE : SPORT
+   ============================================================ */
+(function () {
+  const X = {
+    pompesInc: ['Pompes inclinées', 'Mains sur une chaise ou le canapé, corps gainé. Descends la poitrine, pousse fort.'],
+    pompes: ['Pompes', 'Sur les pieds, corps aligné. Sinon mains surélevées. Évite de poser le genou blessé au sol.'],
+    pompesLarges: ['Pompes mains larges', 'Mains plus larges que les épaules, descente lente sur 2 secondes.'],
+    pompesDiam: ['Pompes serrées', 'Mains proches sous la poitrine, coudes le long du corps (triceps). Mains surélevées si besoin.'],
+    dips: ['Dips sur chaise', 'Dos à une chaise stable, jambes tendues ou fléchies, descends les coudes à 90°.'],
+    pike: ['Pompes piquées', 'Fesses en l\'air (V inversé), descends la tête vers le sol entre les mains (épaules).'],
+    superman: ['Superman', 'Allongé sur le ventre, décolle bras et jambes tendus, tiens 2 s, repose.'],
+    ytw: ['Y-T au sol', 'Sur le ventre, bras en Y puis en T, pouces vers le ciel, serre les omoplates.'],
+    taps: ['Planche touches d\'épaules', 'En haut de pompe, touche l\'épaule opposée sans bouger le bassin.'],
+    planche: ['Planche', 'Sur les avant-bras, fesses serrées, nombril rentré. Ne creuse pas le dos.'],
+    plancheLat: ['Planche latérale', 'Sur un avant-bras, corps aligné. Change de côté à mi-temps.'],
+    climbers: ['Mountain climbers contrôlés', 'En haut de pompe, ramène un genou vers la poitrine puis l\'autre, rythme soutenu sans à-coups.'],
+    deadbug: ['Dead bug', 'Sur le dos, bras et jambes en l\'air, descends bras et jambe opposés en gardant le bas du dos collé.'],
+    hollow: ['Hollow hold', 'Sur le dos, épaules et jambes décollées, bas du dos plaqué au sol.'],
+    velo: ['Crunch vélo', 'Coude vers le genou opposé, lentement, sans tirer sur la nuque.'],
+    releves: ['Relevés de jambes', 'Sur le dos, jambes tendues, monte-les à la verticale et redescends sans toucher le sol.'],
+    pont: ['Pont fessier', 'Sur le dos, pieds à plat, monte le bassin en serrant les fessiers, tiens 1 s en haut.'],
+    squatChaise: ['Squat sur chaise', 'Assieds-toi lentement sur une chaise sans t\'affaler et relève-toi. Genoux dans l\'axe des pieds.'],
+    chaiseMur: ['Chaise haute au mur', 'Dos au mur, genoux pliés à environ 45° seulement (pas à 90°). Genoux au-dessus des chevilles.'],
+    mollets: ['Montées sur pointes', 'Debout, monte sur la pointe des pieds et redescends lentement. Tiens un mur.'],
+    hinge: ['Good morning', 'Mains sur la nuque, genoux légèrement fléchis, penche le buste en poussant les fesses en arrière.'],
+    abdLat: ['Abduction couché sur le côté', 'Jambe du dessus tendue, monte-la d\'une trentaine de centimètres, redescends lentement.'],
+    burpee: ['Burpee sans saut', 'Mains au sol, recule un pied puis l\'autre, pompe facultative, reviens pied par pied et monte sur la pointe des pieds.'],
+    stepJack: ['Step jacks', 'Jumping jacks sans saut : un pied sur le côté en levant les bras, alterne vite.'],
+    boxe: ['Shadow boxing', 'Pieds fixes et stables, enchaîne directs et crochets à fond. Pas de rotation sur le genou.'],
+    chenille: ['Chenille', 'Debout, marche avec les mains jusqu\'en position de pompe, reviens. Genoux souples.'],
+    ours: ['Ours suspendu', 'À quatre pattes, genoux décollés de 3 cm, tiens. Puis petits pas mains-pieds sur place.'],
+    genouxMarche: ['Montées de genoux marchées', 'Sur place, monte un genou à hauteur de hanche, bras dynamiques, sans sauter.'],
+    puncher: ['Coups de poing en planche', 'En haut de pompe, frappe devant toi une main puis l\'autre, bassin immobile.'],
+    chatVache: ['Chat-vache', 'À quatre pattes (coussin sous les genoux), arrondis puis creuse le dos lentement.'],
+    ouverture: ['Ouverture thoracique', 'Sur le côté, genoux pliés, ouvre le bras du dessus vers l\'arrière en suivant la main des yeux.']
+  };
+  const WORKOUTS = [ // index = jour de la semaine (0 = dimanche)
+    { name: 'Mobilité et gainage', focus: 'Récupération active, plus doux', ex: ['chatVache', 'deadbug', 'pont', 'plancheLat', 'ouverture'] },
+    { name: 'Haut du corps et cardio', focus: 'Pectoraux, bras, souffle', ex: ['pompesInc', 'stepJack', 'dips', 'climbers', 'superman'] },
+    { name: 'Gainage costaud', focus: 'Abdos et dos', ex: ['planche', 'velo', 'plancheLat', 'releves', 'hollow'] },
+    { name: 'Bas du corps prudent', focus: 'Fessiers, mollets, cardio sans saut', ex: ['pont', 'squatChaise', 'genouxMarche', 'abdLat', 'mollets'] },
+    { name: 'Poussée et dos', focus: 'Épaules, triceps, posture', ex: ['pompesLarges', 'ytw', 'pike', 'taps', 'pompesDiam'] },
+    { name: 'Corps entier', focus: 'La plus intense de la semaine', ex: ['burpee', 'pompes', 'chaiseMur', 'climbers', 'chenille'] },
+    { name: 'Cardio boxe', focus: 'Souffle, sans impact', ex: ['boxe', 'stepJack', 'puncher', 'ours', 'hinge'] }
+  ];
+  const WARMUP = [['Rotations des bras', 'Grands cercles, vers l\'avant puis l\'arrière.'], ['Cercles de hanches', 'Mains sur les hanches, grands cercles lents.'], ['Marche sur place', 'Genoux à mi-hauteur, bras actifs.'], ['Step jacks lents', 'Sans saut, pour monter le cardio.'], ['Ouverture thoracique debout', 'Bras tendus, ouvre la poitrine, alterne.'], ['Squats partiels lents', 'Petite amplitude, genoux dans l\'axe.']];
+  const COOL = [['Étirement quadriceps', 'Debout en tenant un mur, talon vers la fesse sans forcer, 15 s par jambe.'], ['Étirement ischios', 'Assis, jambe tendue, penche le buste dos droit.'], ['Étirement fessiers', 'Sur le dos, cheville sur le genou opposé, tire doucement.'], ['Étirement pectoraux', 'Main contre un mur, tourne le buste à l\'opposé.']];
+  const INTENSITY = { doux: { work: 30, rest: 30, label: 'Doux 30/30' }, intense: { work: 40, rest: 20, label: 'Intense 40/20' }, max: { work: 45, rest: 15, label: 'Max 45/15' } };
+  const ROUNDS = 3;
+
+  /* Routine genou (rupture LCA non opérée) : niveau 1 = bases des protocoles non opératoires, niveau 2 = stabilité. */
+  const KNEE = {
+    1: [
+      { name: 'Contraction du quadriceps', desc: 'Assis ou allongé jambe tendue, écrase l\'arrière du genou vers le sol en serrant la cuisse.', kind: 'hold', reps: 10, hold: 5, relax: 3 },
+      { name: 'Glissements de talon', desc: 'Sur le dos, fais glisser le talon vers les fesses puis tends. Amplitude sans douleur.', kind: 'reps', reps: 10 },
+      { name: 'Élévation jambe tendue', desc: 'Sur le dos, autre jambe pliée. Contracte la cuisse, monte la jambe tendue à 20 cm, tiens.', kind: 'hold', reps: 10, hold: 5, relax: 3 },
+      { name: 'Élévation latérale', desc: 'Couché sur le côté sain, jambe du dessus tendue dans l\'axe du corps, monte et tiens.', kind: 'hold', reps: 10, hold: 5, relax: 3 },
+      { name: 'Flexion des ischios', desc: 'Sur le ventre (coussin sous le bassin) ou debout, plie le genou en amenant le talon vers la fesse.', kind: 'reps', reps: 10 },
+      { name: 'Mini-squats', desc: 'Pieds largeur de hanches, plie jusqu\'à 45° maximum, genoux au-dessus des pieds, remonte. 2 séries.', kind: 'reps', reps: 20 },
+      { name: 'Pont fessier', desc: 'Sur le dos, pieds à plat, monte le bassin, tiens 2 s, redescends.', kind: 'reps', reps: 12 },
+      { name: 'Montées sur pointes', desc: 'Debout, tiens un mur, monte sur les pointes, redescends lentement.', kind: 'reps', reps: 15 },
+      { name: 'Équilibre sur la jambe blessée', desc: 'Près d\'un mur, genou légèrement fléchi, garde le bassin horizontal.', kind: 'time', dur: 30 },
+      { name: 'Équilibre, deuxième série', desc: 'Même chose. Si c\'est facile, regarde au loin ou tourne la tête doucement.', kind: 'time', dur: 30 }
+    ],
+    2: [
+      { name: 'Contraction du quadriceps', desc: 'Échauffement du quadriceps, jambe tendue.', kind: 'hold', reps: 10, hold: 5, relax: 3 },
+      { name: 'Élévation jambe tendue', desc: 'Monte la jambe tendue à 20 cm, tiens 5 s.', kind: 'hold', reps: 10, hold: 5, relax: 3 },
+      { name: 'Squats sur deux jambes', desc: 'Jusqu\'à 60-70° (pas de squat profond), lent à la descente. 3 séries de 10.', kind: 'reps', reps: 30 },
+      { name: 'Montée sur marche', desc: 'Marche basse (15-20 cm), monte avec la jambe blessée, redescends lentement. Genou dans l\'axe.', kind: 'reps', reps: 10 },
+      { name: 'Fentes arrière courtes', desc: 'Petit pas en arrière, descente partielle, buste droit. Tiens un appui si besoin.', kind: 'reps', reps: 10 },
+      { name: 'Pont sur une jambe', desc: 'Jambe blessée au sol, l\'autre tendue en l\'air, monte le bassin.', kind: 'reps', reps: 10 },
+      { name: 'Équilibre yeux fermés', desc: 'Sur la jambe blessée, près d\'un mur. Rouvre les yeux si tu vacilles.', kind: 'time', dur: 30 },
+      { name: 'Points cardinaux', desc: 'En appui sur la jambe blessée, touche devant, côté et derrière avec l\'autre pied, sans pivoter.', kind: 'reps', reps: 10 },
+      { name: 'Gainage ventral', desc: 'Planche sur les avant-bras.', kind: 'time', dur: 45 }
+    ]
+  };
+  const SOURCES = [
+    ['Protocole non opératoire LCA, Saint Louis University', 'https://slu.edu/medicine/orthopaedic-surgery/-pdf/acl_non-operative_rehab_protocol_slu.pdf'],
+    ['Protocole kiné LCA non opéré, University of Utah', 'https://www.justinernatmd.med.utah.edu/pdf/nonoperative-acl-pt-protocol.pdf'],
+    ['Programme d\'exercices déchirure du LCA (CalOptima Health)', 'https://healthhub.caloptima.org/orthopedics/recovery/exercise-program-acl-tear'],
+    ['Rééducation du ligament croisé, Hôpitaux universitaires de Genève', 'https://hug.ch/sites/enfants-ados/files/documents/reeducation_ligament_croise_genou.pdf']
+  ];
+
+  const workoutFor = (dateStr) => WORKOUTS[parseYmd(dateStr).getDay()];
+  function workoutSteps(w) {
+    const I = INTENSITY[DB.settings.intensity] || INTENSITY.intense;
+    const st = [{ phase: 'prep', kind: 'time', dur: 8, name: 'Prépare-toi', next: WARMUP[0][0], round: 'Départ' }];
+    WARMUP.forEach(([n, d]) => st.push({ phase: 'work', kind: 'time', dur: 30, name: n, desc: d, round: 'Échauffement' }));
+    for (let r = 1; r <= ROUNDS; r++) {
+      w.ex.forEach((k, j) => {
+        st.push({ phase: 'work', kind: 'time', dur: I.work, name: X[k][0], desc: X[k][1], round: `Tour ${r}/${ROUNDS}` });
+        st.push({ phase: 'rest', kind: 'time', dur: I.rest, name: 'Repos', round: `Tour ${r}/${ROUNDS}` });
+      });
+    }
+    st.pop();
+    COOL.forEach(([n, d]) => st.push({ phase: 'work', kind: 'time', dur: 30, name: n, desc: d, round: 'Retour au calme' }));
+    return st;
+  }
+  function kneeSteps() {
+    const list = KNEE[DB.settings.kneeLevel] || KNEE[1];
+    const st = [{ phase: 'prep', kind: 'time', dur: 6, name: 'Prépare-toi', next: list[0].name, round: 'Genou' }];
+    list.forEach((e, j) => {
+      st.push(Object.assign({ phase: 'knee', round: `Genou ${j + 1}/${list.length}` }, e));
+      if (j < list.length - 1) st.push({ phase: 'rest', kind: 'time', dur: 15, name: 'Repos', round: 'Genou' });
+    });
+    return st;
+  }
+  const minutes = (st) => Math.round(st.reduce((a, s) => a + (s.kind === 'reps' ? s.reps * 3 : Runner.stepDur(s)), 0) / 60);
+  function startWorkout() { const t = today(), w = workoutFor(t); Runner.start(workoutSteps(w), { title: w.name, onFinish: () => { DB.sport.done[t] = true; save(); } }); }
+  function startKnee() { const t = today(); Runner.start(kneeSteps(), { title: 'Routine genou', onFinish: () => { DB.sport.knee[t] = true; save(); } }); }
+  function streak() { let n = 0, d = today(); if (!DB.sport.done[d]) d = addDays(d, -1); while (DB.sport.done[d]) { n++; d = addDays(d, -1); } return n; }
+  function dots() {
+    let h = ''; for (let k = 13; k >= 0; k--) { const d = addDays(today(), -k), s = DB.sport.done[d], kn = DB.sport.knee[d]; h += `<i class="${s && kn ? 'sk' : s ? 's' : kn ? 'k' : ''}" title="${fmtShort(d)}"></i>`; } return h;
+  }
+  const doneTag = (on) => on ? '<span class="pill ok">Fait aujourd\'hui</span>' : '';
+
+  Elan.register({
+    id: 'sport', label: 'Sport', icon: ICON.sport,
+    today(t) {
+      const w = workoutFor(t), wd = DB.sport.done[t], kd = DB.sport.knee[t];
+      return `<section class="section"><p class="eyebrow">Sport du jour</p>
+        <div class="card hero-card"><div class="row spread"><h2>${esc(w.name)}</h2>${wd ? '<span class="pill ok">Fait</span>' : '<span class="pill">≈ 20 min</span>'}</div>
+          <p class="muted small">${esc(w.focus)} · poids du corps, sans course ni saut</p>
+          <button type="button" class="primary full" data-act="workout">${wd ? 'Refaire la séance' : 'Lancer la séance'}</button></div>
+        <div class="card knee-card"><div class="row spread"><h3>Routine genou</h3>${kd ? '<span class="pill ok">Fait</span>' : `<span class="pill">≈ ${minutes(kneeSteps())} min</span>`}</div>
+          <p class="muted small">Niveau ${DB.settings.kneeLevel}, en plus de la séance. À faire tous les jours.</p>
+          <button type="button" class="knee-btn full" data-act="knee">${kd ? 'Refaire la routine' : 'Lancer la routine genou'}</button></div>
+        <div class="card"><div class="row spread"><h3>14 derniers jours</h3><span class="muted small">Série : ${streak()} j</span></div><div class="dots">${dots()}</div>
+          <p class="muted small">Bleu : séance · Turquoise : genou · Les deux : moitié-moitié</p></div></section>`;
+    },
+    mountToday(el) { bind(el); },
+    render() {
+      const t = today(), w = workoutFor(t), I = INTENSITY[DB.settings.intensity];
+      const kl = KNEE[DB.settings.kneeLevel];
+      return `<header class="stack"><p class="eyebrow">Sport</p><h1>${esc(w.name)}</h1><p class="muted">${esc(w.focus)}. Échauffement 3 min, puis ${ROUNDS} tours de 5 exercices en ${I.label.split(' ')[1]}, retour au calme 2 min.</p></header>
+        <div class="card hero-card"><div class="row spread"><h2>Séance du ${esc(JOURS[parseYmd(t).getDay()])}</h2>${doneTag(DB.sport.done[t])}</div>
+          <ol class="exlist">${w.ex.map(k => `<li><strong>${esc(X[k][0])}</strong><span class="muted small">${esc(X[k][1])}</span></li>`).join('')}</ol>
+          <button type="button" class="primary full" data-act="workout">Lancer · ${minutes(workoutSteps(w))} min</button></div>
+        <section class="section"><p class="eyebrow">Intensité</p>
+          <div class="seg" role="group" aria-label="Intensité">${Object.entries(INTENSITY).map(([k, v]) => `<button type="button" data-int="${k}" class="${DB.settings.intensity === k ? 'on' : ''}">${v.label}</button>`).join('')}</div>
+          <p class="muted small">Effort / repos en secondes. Commence en Doux la première semaine si tu reprends le sport.</p></section>
+        <section class="section"><div class="row spread"><p class="eyebrow">Routine genou</p>${doneTag(DB.sport.knee[t])}</div>
+          <div class="card knee-card">
+            <div class="seg" role="group" aria-label="Niveau genou"><button type="button" data-kl="1" class="${DB.settings.kneeLevel == 1 ? 'on' : ''}">Niveau 1 · bases</button><button type="button" data-kl="2" class="${DB.settings.kneeLevel == 2 ? 'on' : ''}">Niveau 2 · stabilité</button></div>
+            <ol class="exlist">${kl.map(e => `<li><strong>${esc(e.name)} <span class="pill">${e.kind === 'hold' ? `${e.reps} × ${e.hold} s` : e.kind === 'reps' ? `× ${e.reps}` : `${e.dur} s`}</span></strong><span class="muted small">${esc(e.desc)}</span></li>`).join('')}</ol>
+            <button type="button" class="knee-btn full" data-act="knee">Lancer la routine genou · ${minutes(kneeSteps())} min</button>
+            <p class="note">Passe au niveau 2 seulement quand le niveau 1 se fait sans douleur et que le genou ne gonfle pas le lendemain, pendant 2 à 3 semaines. Une petite gêne pendant l'effort est acceptable, une douleur qui dure ou un gonflement non : reviens au niveau précédent.</p>
+          </div></section>
+        <section class="section"><p class="eyebrow">Ce que la séance évite</p>
+          <div class="card"><p class="small">Pas de course, de sauts, de pivots ni de squats profonds. Ce sont les mouvements que les protocoles réservent aux dernières phases, quand le genou est stable. Ils reviendront plus tard.</p></div></section>
+        <section class="section"><p class="eyebrow">Minuteur libre</p>
+          <div class="card"><div class="grid3">
+            <label for="fWork">Effort (s)<input id="fWork" type="number" inputmode="numeric" min="5" value="40"></label>
+            <label for="fRest">Repos (s)<input id="fRest" type="number" inputmode="numeric" min="0" value="20"></label>
+            <label for="fRounds">Tours<input id="fRounds" type="number" inputmode="numeric" min="1" value="8"></label></div>
+            <button type="button" class="full" data-act="free">Lancer le minuteur</button></div></section>
+        <section class="section"><p class="eyebrow">Semaine</p><div class="card"><ol class="exlist">${WORKOUTS.map((x, d) => ({ x, d })).slice(1).concat([{ x: WORKOUTS[0], d: 0 }]).map(({ x, d }) => `<li><span><strong>${esc(JOURS[d][0].toUpperCase() + JOURS[d].slice(1))}</strong> · ${esc(x.name)}</span><span class="muted small">${esc(x.ex.map(k => X[k][0]).join(', '))}</span></li>`).join('')}</ol></div></section>
+        <section class="section sources"><p class="eyebrow">Sources de la routine genou</p><div class="card small"><ul class="stack" style="margin:0;padding-left:18px">${SOURCES.map(([n, u]) => `<li><a href="${u}" target="_blank" rel="noopener">${esc(n)}</a></li>`).join('')}</ul>
+          <p class="muted">Ces programmes viennent de protocoles de kiné. Un kiné peut les adapter à ton genou.</p></div></section>`;
+    },
+    mount(el) {
+      bind(el);
+      el.querySelectorAll('[data-int]').forEach(b => b.onclick = () => { DB.settings.intensity = b.dataset.int; save(); render(); });
+      el.querySelectorAll('[data-kl]').forEach(b => b.onclick = () => { DB.settings.kneeLevel = Number(b.dataset.kl); save(); render(); });
+    }
+  });
+  function bind(el) {
+    el.querySelectorAll('[data-act="workout"]').forEach(b => b.onclick = startWorkout);
+    el.querySelectorAll('[data-act="knee"]').forEach(b => b.onclick = startKnee);
+    const f = el.querySelector('[data-act="free"]');
+    if (f) f.onclick = () => {
+      const w = Math.max(5, +$('#fWork').value || 40), r = Math.max(0, +$('#fRest').value || 0), n = Math.max(1, +$('#fRounds').value || 1);
+      const st = [{ phase: 'prep', kind: 'time', dur: 5, name: 'Prépare-toi', next: 'Effort', round: 'Départ' }];
+      for (let k = 1; k <= n; k++) { st.push({ phase: 'work', kind: 'time', dur: w, name: `Effort ${k}`, round: `Tour ${k}/${n}` }); if (r && k < n) st.push({ phase: 'rest', kind: 'time', dur: r, name: 'Repos', round: `Tour ${k}/${n}` }); }
+      Runner.start(st, { title: 'Minuteur' });
+    };
+  }
+})();
+
+/* ============================================================
+   MODULE : ORGANISATION (objectifs avec deadline + rappels)
+   ============================================================ */
+(function () {
+  const REPEAT = { none: 'Une fois', daily: 'Tous les jours', weekdays: 'Du lundi au vendredi', weekly: 'Chaque semaine', monthly: 'Chaque mois' };
+  function occursOn(r, d) {
+    if (!r.date || d < r.date) return r.repeat === 'none' ? false : !r.date;
+    const a = parseYmd(r.date), b = parseYmd(d);
+    switch (r.repeat) {
+      case 'daily': return true;
+      case 'weekdays': return b.getDay() >= 1 && b.getDay() <= 5;
+      case 'weekly': return a.getDay() === b.getDay();
+      case 'monthly': { const last = new Date(b.getFullYear(), b.getMonth() + 1, 0).getDate(); return b.getDate() === Math.min(a.getDate(), last); }
+      default: return r.date === d;
+    }
+  }
+  const byTime = (a, b) => (a.time || '99') < (b.time || '99') ? -1 : 1;
+  function dueToday(t) { return DB.reminders.filter(r => occursOn(r, t)).sort(byTime); }
+  function overdue(t) { return DB.reminders.filter(r => r.repeat === 'none' && r.date && r.date < t && !r.done[r.date]).sort((a, b) => a.date < b.date ? -1 : 1); }
+  function upcoming(t, n = 7) { const out = []; for (let k = 1; k <= n; k++) { const d = addDays(t, k); DB.reminders.filter(r => occursOn(r, d)).sort(byTime).forEach(r => out.push({ r, d })); } return out; }
+  function deadlinePill(g, t) {
+    if (g.done) return '<span class="pill ok">Atteint</span>';
+    if (!g.deadline) return '';
+    const n = daysBetween(t, g.deadline);
+    if (n < 0) return `<span class="pill late">En retard de ${-n} j</span>`;
+    if (n === 0) return '<span class="pill late">Aujourd\'hui</span>';
+    return `<span class="pill ${n <= 7 ? 'soon' : ''}">J-${n}</span>`;
+  }
+  function reminderRow(r, d, showDate) {
+    const on = !!r.done[d];
+    return `<div class="item ${on ? 'done' : ''}"><button type="button" class="check ${on ? 'on' : ''}" data-rdone="${r.id}" data-d="${d}" aria-label="${on ? 'Marquer non fait' : 'Marquer fait'}">${on ? ICON.check : ''}</button>
+      <div><p class="t">${esc(r.title)}</p><p class="muted small">${showDate ? esc(fmtShort(d)) + (r.time ? ' · ' : '') : ''}${r.time ? esc(r.time) : showDate ? '' : 'Dans la journée'}${r.repeat !== 'none' ? ' · ' + esc(REPEAT[r.repeat]) : ''}</p>${r.note ? `<p class="muted small">${esc(r.note)}</p>` : ''}</div>
+      <button type="button" class="link" data-redit="${r.id}">Modifier</button></div>`;
+  }
+  function goalCard(g, t, full) {
+    const steps = g.steps || [], nd = steps.filter(s => s.done).length, pct = steps.length ? Math.round(nd / steps.length * 100) : (g.done ? 100 : 0);
+    const nextStep = steps.find(s => !s.done);
+    return `<div class="card"><div class="row spread" style="align-items:flex-start;flex-wrap:nowrap"><div style="min-width:0"><h3>${esc(g.title)}</h3>${g.deadline ? `<p class="muted small">Pour le ${esc(fmtLong(g.deadline))}</p>` : ''}</div>${deadlinePill(g, t)}</div>
+      ${steps.length ? `<div class="bar" aria-label="${pct} %"><i style="width:${pct}%"></i></div><p class="muted small">${nd}/${steps.length} étapes</p>` : ''}
+      ${full ? `${g.notes ? `<p class="small">${esc(g.notes)}</p>` : ''}<div>${steps.map(s => `<div class="item ${s.done ? 'done' : ''}"><button type="button" class="check ${s.done ? 'on' : ''}" data-sdone="${g.id}" data-s="${s.id}" aria-label="Étape faite">${s.done ? ICON.check : ''}</button><div><p class="t" style="font-weight:400">${esc(s.text)}</p></div><span></span></div>`).join('')}</div>
+        <div class="row"><button type="button" class="ghost" data-gedit="${g.id}">Modifier</button>${!g.done ? `<button type="button" class="ghost" data-gdone="${g.id}">Objectif atteint</button>` : ''}${g.deadline && !inFrame ? `<button type="button" class="ghost" data-gics="${g.id}">Ajouter au calendrier</button>` : ''}</div>`
+        : nextStep ? `<p class="small"><span class="muted">Prochaine étape :</span> ${esc(nextStep.text)}</p>` : ''}</div>`;
+  }
+  /* Export calendrier (.ics) : l'app Calendrier de l'iPhone se charge de l'alerte. */
+  function icsFor(title, date, time, repeat, note) {
+    const d = date.replace(/-/g, ''), stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+    const rr = { daily: 'FREQ=DAILY', weekdays: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', weekly: 'FREQ=WEEKLY', monthly: 'FREQ=MONTHLY' }[repeat];
+    const escI = (s) => String(s || '').replace(/[\\,;]/g, m => '\\' + m).replace(/\n/g, '\\n');
+    const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Elan//FR', 'BEGIN:VEVENT', `UID:${uid()}@elan`, `DTSTAMP:${stamp}`];
+    if (time) { const tt = time.replace(':', '') + '00'; L.push(`DTSTART:${d}T${tt}`, `DURATION:PT30M`); } else L.push(`DTSTART;VALUE=DATE:${d}`);
+    L.push(`SUMMARY:${escI(title)}`); if (note) L.push(`DESCRIPTION:${escI(note)}`); if (rr) L.push(`RRULE:${rr}`);
+    L.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${escI(title)}`, time ? 'TRIGGER:-PT0M' : 'TRIGGER:PT9H', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR');
+    const blob = new Blob([L.join('\r\n')], { type: 'text/calendar' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = title.replace(/[^\w\- ]+/g, '').slice(0, 40) + '.ics'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+
+  function reminderForm(r) {
+    r = r || { title: '', date: today(), time: '', repeat: 'none', note: '' };
+    openSheet(`<h2>${r.id ? 'Modifier le rappel' : 'Nouveau rappel'}</h2>
+      <label for="rTitle">Quoi<input id="rTitle" name="title" required value="${esc(r.title)}" placeholder="Ex. Envoyer l'attestation à France Travail"></label>
+      <div class="grid2"><label for="rDate">Date<input id="rDate" type="date" name="date" required value="${esc(r.date)}"></label><label for="rTime">Heure (facultatif)<input id="rTime" type="time" name="time" value="${esc(r.time)}"></label></div>
+      <label for="rRepeat">Répéter<select id="rRepeat" name="repeat">${Object.entries(REPEAT).map(([k, v]) => `<option value="${k}" ${r.repeat === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <label for="rNote">Note<textarea id="rNote" name="note" placeholder="Détails, lien, numéro…">${esc(r.note)}</textarea></label>
+      <div class="row spread"><button type="submit" value="cancel" formnovalidate class="ghost">Annuler</button><div class="row">${r.id ? '<button type="submit" value="delete" formnovalidate class="ghost danger">Supprimer</button>' : ''}${r.id && !inFrame ? '<button type="submit" value="ics" class="ghost">Calendrier</button>' : ''}<button type="submit" value="save" class="primary">Enregistrer</button></div></div>`,
+      (fd, act) => {
+        if (act === 'delete') { DB.reminders = DB.reminders.filter(x => x.id !== r.id); return; }
+        const obj = Object.assign(r.id ? r : { id: uid(), done: {} }, { title: fd.title.trim(), date: fd.date, time: fd.time, repeat: fd.repeat, note: fd.note.trim() });
+        if (!r.id) DB.reminders.push(obj);
+        if (act === 'ics') icsFor(obj.title, obj.date, obj.time, obj.repeat, obj.note);
+      });
+  }
+  function goalForm(g) {
+    g = g || { title: '', deadline: '', notes: '', steps: [] };
+    openSheet(`<h2>${g.id ? 'Modifier l\'objectif' : 'Nouvel objectif'}</h2>
+      <label for="gTitle">Objectif<input id="gTitle" name="title" required value="${esc(g.title)}" placeholder="Ex. Trouver un psychiatre"></label>
+      <label for="gDeadline">Date limite<input id="gDeadline" type="date" name="deadline" value="${esc(g.deadline)}"></label>
+      <label for="gSteps">Étapes, une par ligne<textarea id="gSteps" name="steps" rows="5">${esc((g.steps || []).map(s => s.text).join('\n'))}</textarea></label>
+      <label for="gNotes">Notes<textarea id="gNotes" name="notes">${esc(g.notes)}</textarea></label>
+      <div class="row spread"><button type="submit" value="cancel" formnovalidate class="ghost">Annuler</button><div class="row">${g.id ? '<button type="submit" value="delete" formnovalidate class="ghost danger">Supprimer</button>' : ''}<button type="submit" value="save" class="primary">Enregistrer</button></div></div>`,
+      (fd, act) => {
+        if (act === 'delete') { DB.goals = DB.goals.filter(x => x.id !== g.id); return; }
+        const old = g.steps || [];
+        const steps = fd.steps.split('\n').map(s => s.trim()).filter(Boolean).map(text => old.find(o => o.text === text) || { id: uid(), text, done: false });
+        const obj = Object.assign(g.id ? g : { id: uid(), done: false }, { title: fd.title.trim(), deadline: fd.deadline, notes: fd.notes.trim(), steps });
+        if (!g.id) DB.goals.push(obj);
+      });
+  }
+  const activeGoals = () => DB.goals.filter(g => !g.done).sort((a, b) => (a.deadline || '9999') < (b.deadline || '9999') ? -1 : 1);
+
+  function bind(el) {
+    el.querySelectorAll('[data-rdone]').forEach(b => b.onclick = () => { const r = DB.reminders.find(x => x.id === b.dataset.rdone); if (!r) return; const d = b.dataset.d; if (r.done[d]) delete r.done[d]; else r.done[d] = true; save(); render(); });
+    el.querySelectorAll('[data-redit]').forEach(b => b.onclick = () => reminderForm(DB.reminders.find(x => x.id === b.dataset.redit)));
+    el.querySelectorAll('[data-sdone]').forEach(b => b.onclick = () => { const g = DB.goals.find(x => x.id === b.dataset.sdone), s = g && g.steps.find(x => x.id === b.dataset.s); if (!s) return; s.done = !s.done; save(); render(); });
+    el.querySelectorAll('[data-gedit]').forEach(b => b.onclick = () => goalForm(DB.goals.find(x => x.id === b.dataset.gedit)));
+    el.querySelectorAll('[data-gdone]').forEach(b => b.onclick = () => { const g = DB.goals.find(x => x.id === b.dataset.gdone); g.done = true; save(); render(); });
+    el.querySelectorAll('[data-gics]').forEach(b => b.onclick = () => { const g = DB.goals.find(x => x.id === b.dataset.gics); icsFor('Deadline : ' + g.title, g.deadline, '', 'none', g.notes); });
+    el.querySelectorAll('[data-act="newR"]').forEach(b => b.onclick = () => reminderForm());
+    el.querySelectorAll('[data-act="newG"]').forEach(b => b.onclick = () => goalForm());
+  }
+
+  Elan.register({
+    id: 'orga', label: 'Organisation', icon: ICON.orga,
+    today(t) {
+      const od = overdue(t), td = dueToday(t), left = td.filter(r => !r.done[t]).length;
+      const goals = activeGoals().slice(0, 3);
+      return `<section class="section"><div class="row spread"><p class="eyebrow">À faire aujourd'hui</p><button type="button" class="link" data-act="newR">+ Rappel</button></div>
+        <div class="card">${od.length || td.length ? od.map(r => reminderRow(r, r.date, true).replace('class="item', 'class="item late')).join('') + td.map(r => reminderRow(r, t, false)).join('') : '<p class="muted">Rien de prévu aujourd\'hui. Ajoute un rappel avec « + Rappel ».</p>'}
+        ${od.length ? `<p class="small" style="color:var(--warn);font-weight:700">${od.length} rappel${od.length > 1 ? 's' : ''} en retard</p>` : td.length ? `<p class="muted small">${left === 0 ? 'Tout est fait.' : `Encore ${left} à faire.`}</p>` : ''}</div></section>
+        ${goals.length ? `<section class="section"><div class="row spread"><p class="eyebrow">Objectifs en cours</p><button type="button" class="link" data-tab="orga">Tout voir</button></div>${goals.map(g => goalCard(g, t, false)).join('')}</section>` : ''}`;
+    },
+    mountToday(el) { bind(el); },
+    render() {
+      const t = today(), up = upcoming(t, 14);
+      const doneGoals = DB.goals.filter(g => g.done);
+      return `<header class="stack"><p class="eyebrow">Organisation</p><h1>Objectifs et rappels</h1></header>
+        <section class="section"><div class="row spread"><h2>Objectifs</h2><button type="button" class="primary" data-act="newG">+ Objectif</button></div>
+          ${activeGoals().map(g => goalCard(g, t, true)).join('') || '<div class="card"><p class="muted">Aucun objectif en cours.</p></div>'}
+          ${doneGoals.length ? `<details class="card"><summary><strong>Objectifs atteints (${doneGoals.length})</strong></summary>${doneGoals.map(g => `<p class="small">${esc(g.title)} <button type="button" class="link" data-gedit="${g.id}">Modifier</button></p>`).join('')}</details>` : ''}</section>
+        <section class="section"><div class="row spread"><h2>Rappels</h2><button type="button" class="primary" data-act="newR">+ Rappel</button></div>
+          <div class="card"><p class="eyebrow">Aujourd'hui</p>${dueToday(t).map(r => reminderRow(r, t, false)).join('') || '<p class="muted small">Rien aujourd\'hui.</p>'}</div>
+          <div class="card"><p class="eyebrow">14 prochains jours</p>${up.map(({ r, d }) => reminderRow(r, d, true)).join('') || '<p class="muted small">Rien de prévu.</p>'}</div>
+          <p class="note">${inFrame ? 'Les rappels s\'affichent quand tu ouvres l\'appli.' : 'Les rappels s\'affichent quand tu ouvres l\'appli. Pour recevoir une alerte sur l\'iPhone même appli fermée, ouvre un rappel et touche « Calendrier » : il s\'ajoute à l\'app Calendrier avec une alerte.'}</p></section>`;
+    },
+    mount(el) { bind(el); }
+  });
+  Elan.occursOn = occursOn;
+})();
+
+/* ============================================================
+   MODULE : RÉGLAGES (son, voix, sauvegarde)
+   ============================================================ */
+Elan.register({
+  id: 'settings', label: 'Réglages', icon: ICON.settings,
+  render() {
+    const s = DB.settings;
+    return `<header class="stack"><p class="eyebrow">Réglages</p><h1>Réglages</h1></header>
+      <section class="section"><div class="card">
+        <label class="row spread" for="sSound" style="display:flex">Bips du minuteur<input id="sSound" type="checkbox" ${s.sound ? 'checked' : ''} style="width:auto;min-height:0"></label>
+        <label class="row spread" for="sVoice" style="display:flex">Annonce vocale des exercices<input id="sVoice" type="checkbox" ${s.voice ? 'checked' : ''} style="width:auto;min-height:0"></label>
+        <p class="muted small">Sur iPhone, coupe le mode silencieux pour entendre les bips.</p></div></section>
+      <section class="section"><h2>Sauvegarde</h2><div class="card">
+        <p class="small">Tes données restent sur ce téléphone. Copie une sauvegarde de temps en temps (dans Notes par exemple) pour ne rien perdre.</p>
+        <button type="button" id="bCopy">Copier la sauvegarde</button>
+        <label for="bImport">Restaurer : colle une sauvegarde ici<textarea id="bImport" placeholder='{"v":1,...}'></textarea></label>
+        <button type="button" id="bRestore" class="ghost">Restaurer</button>
+        <p class="small" id="bMsg" role="status"></p></div></section>
+      <section class="section"><h2>Remettre à zéro</h2><div class="card"><p class="small muted">Efface tout et remet les exemples du départ.</p>
+        <button type="button" id="bReset" class="ghost danger">Tout effacer</button><button type="button" id="bResetOk" class="danger" hidden>Confirmer l'effacement</button></div></section>
+      <p class="muted small">Élan · version 0.1 · les modules (langue, etc.) s'ajouteront ici au fil du temps.</p>`;
+  },
+  mount(el) {
+    $('#sSound').onchange = (e) => { DB.settings.sound = e.target.checked; save(); };
+    $('#sVoice').onchange = (e) => { DB.settings.voice = e.target.checked; save(); };
+    const msg = (t) => { $('#bMsg').textContent = t; };
+    $('#bCopy').onclick = () => { const txt = JSON.stringify(DB); navigator.clipboard && navigator.clipboard.writeText(txt).then(() => msg('Sauvegarde copiée. Colle-la dans Notes.'), () => { $('#bImport').value = txt; $('#bImport').select(); msg('Copie automatique refusée : le texte est sélectionné ci-dessus, copie-le.'); }); };
+    $('#bRestore').onclick = () => { try { const d = JSON.parse($('#bImport').value); if (!d || !d.goals || !d.reminders) throw 0; try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e2) {} DB = d; load(); DB = d.goals ? Object.assign(DB, { goals: d.goals, reminders: d.reminders }) : DB; save(); msg('Sauvegarde restaurée.'); render(); } catch (e) { msg('Ce texte n\'est pas une sauvegarde Élan valide. Vérifie que tu l\'as collé en entier.'); } };
+    $('#bReset').onclick = () => { $('#bResetOk').hidden = false; };
+    $('#bResetOk').onclick = () => { DB = seed(); save(); render(); };
+  }
+});
+
+/* ---------- Démarrage ---------- */
+load(); save(); render();
+// Recalcule la vue si la journée change pendant que l'appli est ouverte.
+let lastDay = today();
+document.addEventListener('visibilitychange', () => { if (!document.hidden && today() !== lastDay) { lastDay = today(); if ($('#runner').hidden) render(); } });
+// Mode hors ligne quand l'appli est installée (ignoré dans un aperçu).
+if ('serviceWorker' in navigator && !inFrame && location.protocol === 'https:') { navigator.serviceWorker.register('sw.js').catch(() => {}); }
+})();
+</script>
