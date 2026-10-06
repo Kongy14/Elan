@@ -54,6 +54,10 @@ p { margin: 0; }
 .hero-card { background: var(--accent); color: var(--accent-ink); border: 0; }
 .hero-card .muted { color: inherit; opacity: .8; }
 .knee-card { border-left: 5px solid var(--knee); }
+.hard-card { border-left: 5px solid var(--warn); }
+.lvl { font-family: var(--f-display); font-size: 34px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.bar.xp { height: 10px; }
+.bar.xp > i { background: var(--accent); }
 button, .btn { font: inherit; font-weight: 700; border: 0; border-radius: 12px; padding: 12px 16px; cursor: pointer; background: var(--soft); color: var(--ink); min-height: 44px; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .primary { background: var(--accent); color: var(--accent-ink); }
@@ -157,7 +161,8 @@ const daysBetween = (a, b) => Math.round((parseYmd(b) - parseYmd(a)) / 86400000)
 const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 const fmtLong = (s) => { const d = parseYmd(s); return `${JOURS[d.getDay()]} ${d.getDate()} ${MOIS[d.getMonth()]}`; };
-const fmtShort = (s) => { const d = parseYmd(s); return `${d.getDate()} ${MOIS[d.getMonth()].slice(0, 4).replace(/\.$/, '')}${MOIS[d.getMonth()].length > 4 ? '.' : ''}`; };
+const MOIS_C = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+const fmtShort = (s) => { const d = parseYmd(s); return `${d.getDate()} ${MOIS_C[d.getMonth()]}`; };
 const mmss = (sec) => { sec = Math.max(0, Math.ceil(sec)); return sec >= 60 ? `${Math.floor(sec / 60)}:${pad(sec % 60)}` : String(sec); };
 const inFrame = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
 const ICON = {
@@ -173,8 +178,10 @@ const KEY = 'elan.v1';
 function seed() {
   return {
     v: 1,
-    settings: { sound: true, voice: true, intensity: 'intense', kneeLevel: 1 },
-    sport: { done: {}, knee: {} },
+    settings: { sound: true, voice: true, intensity: 'intense', kneeLevel: 1, calLevel: 1 },
+    sport: { done: {}, knee: {}, tests: [] },
+    // Progression : l'XP est recalculée depuis l'historique ; seules les pénalités Hard Mode sont stockées.
+    prog: { hard: true, start: today(), lastEval: addDays(today(), -1), penalties: {}, debt: { push: 0, plank: 0 }, notice: null },
     goals: [
       { id: uid(), title: "M'inscrire au permis de conduire", deadline: '2026-11-06', done: false, notes: "Objectif : inscription faite la première semaine de novembre.", steps: [
         { id: uid(), text: 'Comparer 2 ou 3 auto-écoles (prix, avis, auto-école en ligne)', done: false },
@@ -197,6 +204,9 @@ function load() {
   const s = seed();
   DB.settings = Object.assign(s.settings, DB.settings || {});
   DB.sport = Object.assign(s.sport, DB.sport || {});
+  DB.prog = Object.assign(s.prog, DB.prog || {});
+  DB.prog.penalties = DB.prog.penalties || {}; DB.prog.debt = Object.assign({ push: 0, plank: 0 }, DB.prog.debt || {});
+  DB.sport.tests = DB.sport.tests || [];
   DB.goals = DB.goals || []; DB.reminders = DB.reminders || [];
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) { /* stockage indisponible */ } }
@@ -228,9 +238,10 @@ Elan.go = go;
 
 function render() {
   const tabs = $('#tabs');
-  tabs.style.setProperty('--n', modules.length);
-  tabs.innerHTML = modules.map(m => `<button type="button" data-tab="${m.id}" class="${m.id === current ? 'on' : ''}" aria-current="${m.id === current ? 'page' : 'false'}">${m.icon}<span>${esc(m.label)}</span></button>`).join('');
-  const mod = modules.find(m => m.id === current) || modules[0];
+  const tabMods = modules.filter(m => m.tab !== false);
+  tabs.style.setProperty('--n', tabMods.length);
+  tabs.innerHTML = tabMods.map(m => `<button type="button" data-tab="${m.id}" class="${m.id === current ? 'on' : ''}" aria-current="${m.id === current ? 'page' : 'false'}">${m.icon}<span>${esc(m.label)}</span></button>`).join('');
+  const mod = tabMods.find(m => m.id === current) || tabMods[0];
   $('#app').innerHTML = mod.render();
   mod.mount && mod.mount($('#app'));
 }
@@ -253,12 +264,12 @@ Elan.openSheet = openSheet;
    Étapes : { phase: 'prep'|'work'|'rest'|'knee', name, desc, kind: 'time'|'hold'|'reps', dur, reps, hold, relax }
    ============================================================ */
 const Runner = (function () {
-  let steps = [], i = 0, startTs = 0, pausedAt = 0, paused = false, timer = null, lastSec = null, onFinish = null, title = '';
+  let steps = [], i = 0, startTs = 0, pausedAt = 0, paused = false, timer = null, lastSec = null, onFinish = null, title = '', reward = '';
   const R = 130, C = 2 * Math.PI * R;
   function stepDur(s) { return s.kind === 'hold' ? s.reps * (s.hold + s.relax) : s.kind === 'reps' ? Infinity : s.dur; }
   function totalTimed() { return steps.reduce((a, s) => a + (isFinite(stepDur(s)) ? stepDur(s) : 0), 0); }
   function start(list, opts = {}) {
-    steps = list; i = 0; title = opts.title || 'Séance'; onFinish = opts.onFinish || null;
+    steps = list; i = 0; title = opts.title || 'Séance'; onFinish = opts.onFinish || null; reward = opts.reward || '';
     audioUnlock(); keepAwake(true);
     $('#runner').hidden = false; document.body.style.overflow = 'hidden';
     begin();
@@ -297,7 +308,7 @@ const Runner = (function () {
     clearInterval(timer); beep(1320, 0.18); setTimeout(() => beep(1760, 0.3), 200); say('Bravo, séance terminée.');
     onFinish && onFinish();
     $('#runner').dataset.phase = 'work';
-    $('#runner').innerHTML = `<div></div><div class="rn-mid"><p class="rn-phase">Terminé</p><p class="rn-name">Bien joué.</p><p class="rn-desc">${esc(title)} est enregistrée pour aujourd'hui.</p></div><div class="rn-ctrl"><span></span><button type="button" class="big" id="rnClose">Fermer</button><span></span></div>`;
+    $('#runner').innerHTML = `<div></div><div class="rn-mid"><p class="rn-phase">Terminé</p><p class="rn-name">Bien joué.</p><p class="rn-desc">${esc(title)} est enregistrée pour aujourd'hui.</p>${reward ? `<p class="pill ok">${esc(reward)}</p>` : ''}</div><div class="rn-ctrl"><span></span><button type="button" class="big" id="rnClose">Fermer</button><span></span></div>`;
     $('#rnClose').onclick = () => { stop(); render(); };
   }
   function draw() {
@@ -349,7 +360,7 @@ Elan.register({
   id: 'today', label: "Aujourd'hui", icon: ICON.today,
   render() {
     const t = today();
-    const cards = modules.filter(m => m.today).map(m => m.today(t)).join('');
+    const cards = modules.filter(m => m.today).sort((a, b) => (a.todayOrder || 50) - (b.todayOrder || 50)).map(m => m.today(t)).join('');
     const h = new Date().getHours();
     const hello = h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
     return `<header class="stack"><p class="eyebrow">${esc(fmtLong(t))}</p><h1>${hello} Jules.</h1></header>${cards}`;
@@ -384,7 +395,6 @@ Elan.register({
     mollets: ['Montées sur pointes', 'Debout, monte sur la pointe des pieds et redescends lentement. Tiens un mur.'],
     hinge: ['Good morning', 'Mains sur la nuque, genoux légèrement fléchis, penche le buste en poussant les fesses en arrière.'],
     abdLat: ['Abduction couché sur le côté', 'Jambe du dessus tendue, monte-la d\'une trentaine de centimètres, redescends lentement.'],
-    burpee: ['Burpee sans saut', 'Mains au sol, recule un pied puis l\'autre, pompe facultative, reviens pied par pied et monte sur la pointe des pieds.'],
     stepJack: ['Step jacks', 'Jumping jacks sans saut : un pied sur le côté en levant les bras, alterne vite.'],
     boxe: ['Shadow boxing', 'Pieds fixes et stables, enchaîne directs et crochets à fond. Pas de rotation sur le genou.'],
     chenille: ['Chenille', 'Debout, marche avec les mains jusqu\'en position de pompe, reviens. Genoux souples.'],
@@ -392,21 +402,67 @@ Elan.register({
     genouxMarche: ['Montées de genoux marchées', 'Sur place, monte un genou à hauteur de hanche, bras dynamiques, sans sauter.'],
     puncher: ['Coups de poing en planche', 'En haut de pompe, frappe devant toi une main puis l\'autre, bassin immobile.'],
     chatVache: ['Chat-vache', 'À quatre pattes (coussin sous les genoux), arrondis puis creuse le dos lentement.'],
-    ouverture: ['Ouverture thoracique', 'Sur le côté, genoux pliés, ouvre le bras du dessus vers l\'arrière en suivant la main des yeux.']
+    ouverture: ['Ouverture thoracique', 'Sur le côté, genoux pliés, ouvre le bras du dessus vers l\'arrière en suivant la main des yeux.'],
+    pompesDecl: ['Pompes déclinées', 'Pieds sur une chaise, mains au sol, corps gainé. Descends la poitrine jusqu\'au sol.'],
+    flutter: ['Battements de jambes', 'Sur le dos, mains sous les fesses, jambes tendues à 15 cm du sol, petits battements rapides. Bas du dos collé.'],
+    fenteStat: ['Fentes statiques courtes', 'Un pied devant, descends de quelques centimètres seulement, buste droit, appui sur un mur si besoin. Aucun pivot.']
   };
-  const WORKOUTS = [ // index = jour de la semaine (0 = dimanche)
-    { name: 'Mobilité et gainage', focus: 'Récupération active, plus doux', ex: ['chatVache', 'deadbug', 'pont', 'plancheLat', 'ouverture'] },
-    { name: 'Haut du corps et cardio', focus: 'Pectoraux, bras, souffle', ex: ['pompesInc', 'stepJack', 'dips', 'climbers', 'superman'] },
-    { name: 'Gainage costaud', focus: 'Abdos et dos', ex: ['planche', 'velo', 'plancheLat', 'releves', 'hollow'] },
-    { name: 'Bas du corps prudent', focus: 'Fessiers, mollets, cardio sans saut', ex: ['pont', 'squatChaise', 'genouxMarche', 'abdLat', 'mollets'] },
-    { name: 'Poussée et dos', focus: 'Épaules, triceps, posture', ex: ['pompesLarges', 'ytw', 'pike', 'taps', 'pompesDiam'] },
-    { name: 'Corps entier', focus: 'La plus intense de la semaine', ex: ['burpee', 'pompes', 'chaiseMur', 'climbers', 'chenille'] },
-    { name: 'Cardio boxe', focus: 'Souffle, sans impact', ex: ['boxe', 'stepJack', 'puncher', 'ours', 'hinge'] }
+  /* Calisthénie façon militaire : 3 grades, une séance différente chaque jour de la semaine. */
+  const LEVELS = {
+    1: { name: 'Recrue', push: 'pompesInc', hold: 30, emomReps: 6, emomMin: 10, peak: 6, deckMax: 6, deckCards: 24, wall: 30, work: 30, rest: 30 },
+    2: { name: 'Soldat', push: 'pompes', hold: 45, emomReps: 8, emomMin: 12, peak: 7, deckMax: 8, deckCards: 30, wall: 40, work: 40, rest: 20 },
+    3: { name: 'Commando', push: 'pompesDiam', hold: 60, emomReps: 12, emomMin: 14, peak: 8, deckMax: 10, deckCards: 36, wall: 50, work: 45, rest: 15 }
+  };
+  const TEST = { 2: { push: 15, plank: 60 }, 3: { push: 35, plank: 120 } }; // pompes classiques en 2 min, planche en secondes
+  const lvl = () => LEVELS[DB.settings.calLevel] || LEVELS[1];
+  const W = (k, dur, round) => ({ phase: 'work', kind: 'time', dur, name: X[k][0], desc: X[k][1], round });
+  const Rp = (k, reps, round) => ({ phase: 'work', kind: 'reps', reps, name: X[k][0], desc: X[k][1], round });
+  const rest = (dur, round) => ({ phase: 'rest', kind: 'time', dur, name: 'Repos', round });
+  const circuit = (keys, L, tours, durs = {}) => { const st = []; for (let r = 1; r <= tours; r++) keys.forEach(k => st.push(W(k, durs[k] || L.work, `Tour ${r}/${tours}`), rest(L.rest, `Tour ${r}/${tours}`))); st.pop(); return st; };
+  const pyramid = (n) => { const up = Array.from({ length: n }, (_, i) => i + 1); return up.concat(up.slice(0, -1).reverse()); };
+  // Tirage pseudo-aléatoire fixé par la date : l'aperçu et la séance du jour donnent les mêmes cartes.
+  function rng(str) { let h = 2166136261; for (const c of str) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); h ^= h >>> 16; return (h >>> 0) / 4294967296; }; }
+  const SUITS = (L) => [['♠', L.push], ['♥', 'releves'], ['♦', 'dips'], ['♣', 'superman']];
+  const PLAN = [ // index = jour de la semaine (0 = dimanche)
+    { name: 'Mobilité', focus: 'Récupération active, la même pour tous les grades',
+      keys: () => ['chatVache', 'deadbug', 'pont', 'plancheLat', 'ouverture'],
+      build() { return circuit(this.keys(), { work: 40, rest: 20 }, 2); },
+      list() { return this.keys().map(k => [X[k][0], '2 tours de 40 s']); } },
+    { name: 'Pyramide de pompes', focus: 'Pectoraux, triceps et mental',
+      build(L) {
+        const st = [], a = pyramid(L.peak), b = pyramid(Math.max(3, L.peak - 2));
+        a.forEach((n, i) => st.push(Rp(L.push, n, `Pyramide pompes ${i + 1}/${a.length}`), rest(10 + n * 3, `Pyramide pompes ${i + 1}/${a.length}`)));
+        b.forEach((n, i) => st.push(Rp('dips', n, `Pyramide dips ${i + 1}/${b.length}`), rest(10 + n * 3, `Pyramide dips ${i + 1}/${b.length}`)));
+        st.push(W('planche', L.hold, 'Finisher'), rest(30, 'Finisher'), W('planche', L.hold, 'Finisher'));
+        return st;
+      },
+      list(L) { const a = pyramid(L.peak), b = pyramid(Math.max(3, L.peak - 2)), sum = (v) => v.reduce((x, y) => x + y, 0); return [[X[L.push][0], `Pyramide ${a.join('-')}, soit ${sum(a)} au total`], [X.dips[0], `Pyramide ${b.join('-')}, soit ${sum(b)} au total`], [X.planche[0], `2 × ${L.hold} s pour finir`]]; } },
+    { name: 'Gainage commando', focus: 'Abdos et dos, tenir quand ça brûle',
+      keys: () => ['planche', 'plancheLat', 'hollow', 'ours', 'flutter'],
+      build(L) { return circuit(this.keys(), { work: L.hold, rest: 20 }, 3); },
+      list(L) { return this.keys().map(k => [X[k][0], `3 tours de ${L.hold} s`]); } },
+    { name: 'EMOM', focus: 'Une série au début de chaque minute, repos le reste de la minute',
+      build(L) {
+        const st = [];
+        for (let m = 1; m <= L.emomMin; m++) { const k = m % 2 ? L.push : 'releves', n = m % 2 ? L.emomReps : L.emomReps + 4; st.push({ phase: 'work', kind: 'time', dur: 60, name: `${n} × ${X[k][0].toLowerCase()}`, desc: `${X[k][1]} Dès le bip, puis récupère jusqu'à la fin de la minute.`, round: `Minute ${m}/${L.emomMin}` }); }
+        return st;
+      },
+      list(L) { return [[`Minutes impaires : ${L.emomReps} × ${X[L.push][0].toLowerCase()}`, X[L.push][1]], [`Minutes paires : ${L.emomReps + 4} × relevés de jambes`, X.releves[1]], ['Durée', `${L.emomMin} minutes`]]; } },
+    { name: 'Jambes prudentes et tronc', focus: 'Fessiers, mollets et gainage, sans saut ni pivot',
+      keys: (L) => ['chaiseMur', 'pont', 'mollets', 'abdLat', 'flutter'].concat(L.name === 'Commando' ? ['fenteStat'] : []),
+      build(L) { return circuit(this.keys(L), L, 3, { chaiseMur: L.wall }); },
+      list(L) { return this.keys(L).map(k => [X[k][0], `3 tours de ${k === 'chaiseMur' ? L.wall : L.work} s`]); } },
+    { name: 'Jeu de cartes', focus: 'Chaque carte donne un exercice et un nombre de répétitions, sans repos',
+      draw(L, date) { const R = rng('cartes' + date), out = []; for (let i = 0; i < L.deckCards; i++) { const [s, k] = SUITS(L)[Math.floor(R() * 4)]; out.push([s, k, 2 + Math.floor(R() * (L.deckMax - 1))]); } return out; },
+      build(L, date) { return this.draw(L, date).map(([s, k, n], i) => Rp(k, n, `Carte ${i + 1}/${L.deckCards} ${s}`)); },
+      list(L, date) { const tot = {}; this.draw(L, date).forEach(([, k, n]) => { tot[k] = (tot[k] || 0) + n; }); return SUITS(L).map(([s, k]) => [`${s} ${X[k][0]}`, `${tot[k] || 0} répétitions au total aujourd'hui`]); } },
+    { name: 'Circuit complet', focus: 'Tout le corps, la plus dure de la semaine',
+      keys: (L) => [L.push, 'taps', 'dips', 'flutter', 'superman'],
+      build(L) { return circuit(this.keys(L), L, 3); },
+      list(L) { return this.keys(L).map(k => [X[k][0], `3 tours, ${L.work} s d'effort et ${L.rest} s de repos`]); } }
   ];
   const WARMUP = [['Rotations des bras', 'Grands cercles, vers l\'avant puis l\'arrière.'], ['Cercles de hanches', 'Mains sur les hanches, grands cercles lents.'], ['Marche sur place', 'Genoux à mi-hauteur, bras actifs.'], ['Step jacks lents', 'Sans saut, pour monter le cardio.'], ['Ouverture thoracique debout', 'Bras tendus, ouvre la poitrine, alterne.'], ['Squats partiels lents', 'Petite amplitude, genoux dans l\'axe.']];
   const COOL = [['Étirement quadriceps', 'Debout en tenant un mur, talon vers la fesse sans forcer, 15 s par jambe.'], ['Étirement ischios', 'Assis, jambe tendue, penche le buste dos droit.'], ['Étirement fessiers', 'Sur le dos, cheville sur le genou opposé, tire doucement.'], ['Étirement pectoraux', 'Main contre un mur, tourne le buste à l\'opposé.']];
-  const INTENSITY = { doux: { work: 30, rest: 30, label: 'Doux 30/30' }, intense: { work: 40, rest: 20, label: 'Intense 40/20' }, max: { work: 45, rest: 15, label: 'Max 45/15' } };
-  const ROUNDS = 3;
 
   /* Routine genou (rupture LCA non opérée) : niveau 1 = bases des protocoles non opératoires, niveau 2 = stabilité. */
   const KNEE = {
@@ -441,18 +497,15 @@ Elan.register({
     ['Rééducation du ligament croisé, Hôpitaux universitaires de Genève', 'https://hug.ch/sites/enfants-ados/files/documents/reeducation_ligament_croise_genou.pdf']
   ];
 
-  const workoutFor = (dateStr) => WORKOUTS[parseYmd(dateStr).getDay()];
-  function workoutSteps(w) {
-    const I = INTENSITY[DB.settings.intensity] || INTENSITY.intense;
+  const planFor = (dateStr) => PLAN[parseYmd(dateStr).getDay()];
+  function workoutSteps(dateStr) {
+    const L = lvl(), p = planFor(dateStr), debt = DB.prog.debt;
     const st = [{ phase: 'prep', kind: 'time', dur: 8, name: 'Prépare-toi', next: WARMUP[0][0], round: 'Départ' }];
     WARMUP.forEach(([n, d]) => st.push({ phase: 'work', kind: 'time', dur: 30, name: n, desc: d, round: 'Échauffement' }));
-    for (let r = 1; r <= ROUNDS; r++) {
-      w.ex.forEach((k, j) => {
-        st.push({ phase: 'work', kind: 'time', dur: I.work, name: X[k][0], desc: X[k][1], round: `Tour ${r}/${ROUNDS}` });
-        st.push({ phase: 'rest', kind: 'time', dur: I.rest, name: 'Repos', round: `Tour ${r}/${ROUNDS}` });
-      });
-    }
-    st.pop();
+    // Hard Mode : la dette des jours ratés passe en premier.
+    if (debt.push) st.push(Rp(L.push === 'pompesInc' ? 'pompesInc' : 'pompes', debt.push, 'Dette Hard Mode'));
+    if (debt.plank) st.push(W('planche', debt.plank, 'Dette Hard Mode'));
+    st.push(...p.build(L, dateStr));
     COOL.forEach(([n, d]) => st.push({ phase: 'work', kind: 'time', dur: 30, name: n, desc: d, round: 'Retour au calme' }));
     return st;
   }
@@ -466,39 +519,65 @@ Elan.register({
     return st;
   }
   const minutes = (st) => Math.round(st.reduce((a, s) => a + (s.kind === 'reps' ? s.reps * 3 : Runner.stepDur(s)), 0) / 60);
-  function startWorkout() { const t = today(), w = workoutFor(t); Runner.start(workoutSteps(w), { title: w.name, onFinish: () => { DB.sport.done[t] = true; save(); } }); }
-  function startKnee() { const t = today(); Runner.start(kneeSteps(), { title: 'Routine genou', onFinish: () => { DB.sport.knee[t] = true; save(); } }); }
+  function startWorkout() { const t = today(), p = planFor(t); Runner.start(workoutSteps(t), { title: p.name, reward: '+30 XP', onFinish: () => { DB.sport.done[t] = true; DB.prog.debt = { push: 0, plank: 0 }; save(); } }); }
+  function startKnee() { const t = today(); Runner.start(kneeSteps(), { title: 'Routine genou', reward: '+20 XP', onFinish: () => { DB.sport.knee[t] = true; save(); } }); }
+  function startTest() {
+    Runner.start([
+      { phase: 'prep', kind: 'time', dur: 10, name: 'Prépare-toi', next: 'Pompes classiques', round: 'Test' },
+      { phase: 'work', kind: 'time', dur: 120, name: 'Max de pompes classiques', desc: 'Compte tes pompes propres : poitrine près du sol, corps aligné. Tu peux te reposer en haut, le chrono continue.', round: 'Test' }
+    ], { title: 'Test de grade', reward: 'Note ton score avec « Noter mon résultat »' });
+  }
+  function testForm() {
+    openSheet(`<h2>Résultat du test</h2>
+      <p class="small">Pompes classiques faites en 2 minutes, puis la planche sur les avant-bras tenue le plus longtemps possible.</p>
+      <div class="grid2"><label for="tPush">Pompes en 2 min<input id="tPush" name="push" type="number" inputmode="numeric" min="0" required></label><label for="tPlank">Planche (secondes)<input id="tPlank" name="plank" type="number" inputmode="numeric" min="0" required></label></div>
+      <p class="muted small">Soldat : ${TEST[2].push} pompes et ${TEST[2].plank} s. Commando : ${TEST[3].push} pompes et ${TEST[3].plank} s.</p>
+      <div class="row spread"><button type="submit" value="cancel" formnovalidate class="ghost">Annuler</button><button type="submit" value="save" class="primary">Enregistrer</button></div>`,
+      (fd) => {
+        const push = Math.max(0, +fd.push || 0), plank = Math.max(0, +fd.plank || 0);
+        let g = 1; [2, 3].forEach(k => { if (push >= TEST[k].push && plank >= TEST[k].plank) g = k; });
+        const promoted = g > DB.settings.calLevel;
+        if (promoted) DB.settings.calLevel = g;
+        DB.sport.tests.push({ date: today(), push, plank, promoted: promoted ? g : 0 });
+      });
+  }
   function streak() { let n = 0, d = today(); if (!DB.sport.done[d]) d = addDays(d, -1); while (DB.sport.done[d]) { n++; d = addDays(d, -1); } return n; }
   function dots() {
     let h = ''; for (let k = 13; k >= 0; k--) { const d = addDays(today(), -k), s = DB.sport.done[d], kn = DB.sport.knee[d]; h += `<i class="${s && kn ? 'sk' : s ? 's' : kn ? 'k' : ''}" title="${fmtShort(d)}"></i>`; } return h;
   }
   const doneTag = (on) => on ? '<span class="pill ok">Fait aujourd\'hui</span>' : '';
+  const debtLine = () => { const d = DB.prog.debt; return d.push || d.plank ? `<p class="small"><span class="pill late">Dette</span> ${[d.push ? `${d.push} pompes` : '', d.plank ? `${d.plank} s de planche` : ''].filter(Boolean).join(' et ')} en début de séance.</p>` : ''; };
 
   Elan.register({
     id: 'sport', label: 'Sport', icon: ICON.sport,
     today(t) {
-      const w = workoutFor(t), wd = DB.sport.done[t], kd = DB.sport.knee[t];
+      const p = planFor(t), L = lvl(), wd = DB.sport.done[t], kd = DB.sport.knee[t];
       return `<section class="section"><p class="eyebrow">Sport du jour</p>
-        <div class="card hero-card"><div class="row spread"><h2>${esc(w.name)}</h2>${wd ? '<span class="pill ok">Fait</span>' : '<span class="pill">≈ 20 min</span>'}</div>
-          <p class="muted small">${esc(w.focus)} · poids du corps, sans course ni saut</p>
+        <div class="card hero-card"><div class="row spread"><h2>${esc(p.name)}</h2>${wd ? '<span class="pill ok">Fait</span>' : `<span class="pill">≈ ${minutes(workoutSteps(t))} min</span>`}</div>
+          <p class="muted small">${esc(p.focus)} · grade ${esc(L.name)}</p>${debtLine()}
           <button type="button" class="primary full" data-act="workout">${wd ? 'Refaire la séance' : 'Lancer la séance'}</button></div>
         <div class="card knee-card"><div class="row spread"><h3>Routine genou</h3>${kd ? '<span class="pill ok">Fait</span>' : `<span class="pill">≈ ${minutes(kneeSteps())} min</span>`}</div>
           <p class="muted small">Niveau ${DB.settings.kneeLevel}, en plus de la séance. À faire tous les jours.</p>
           <button type="button" class="knee-btn full" data-act="knee">${kd ? 'Refaire la routine' : 'Lancer la routine genou'}</button></div>
-        <div class="card"><div class="row spread"><h3>14 derniers jours</h3><span class="muted small">Série : ${streak()} j</span></div><div class="dots">${dots()}</div>
+        <div class="card"><div class="row spread"><h3>14 derniers jours</h3><span class="muted small">Séances d'affilée : ${streak()} j</span></div><div class="dots">${dots()}</div>
           <p class="muted small">Bleu : séance · Turquoise : genou · Les deux : moitié-moitié</p></div></section>`;
     },
     mountToday(el) { bind(el); },
     render() {
-      const t = today(), w = workoutFor(t), I = INTENSITY[DB.settings.intensity];
+      const t = today(), p = planFor(t), L = lvl(), cur = DB.settings.calLevel, next = TEST[cur + 1];
+      const last = DB.sport.tests[DB.sport.tests.length - 1];
       const kl = KNEE[DB.settings.kneeLevel];
-      return `<header class="stack"><p class="eyebrow">Sport</p><h1>${esc(w.name)}</h1><p class="muted">${esc(w.focus)}. Échauffement 3 min, puis ${ROUNDS} tours de 5 exercices en ${I.label.split(' ')[1]}, retour au calme 2 min.</p></header>
-        <div class="card hero-card"><div class="row spread"><h2>Séance du ${esc(JOURS[parseYmd(t).getDay()])}</h2>${doneTag(DB.sport.done[t])}</div>
-          <ol class="exlist">${w.ex.map(k => `<li><strong>${esc(X[k][0])}</strong><span class="muted small">${esc(X[k][1])}</span></li>`).join('')}</ol>
-          <button type="button" class="primary full" data-act="workout">Lancer · ${minutes(workoutSteps(w))} min</button></div>
-        <section class="section"><p class="eyebrow">Intensité</p>
-          <div class="seg" role="group" aria-label="Intensité">${Object.entries(INTENSITY).map(([k, v]) => `<button type="button" data-int="${k}" class="${DB.settings.intensity === k ? 'on' : ''}">${v.label}</button>`).join('')}</div>
-          <p class="muted small">Effort / repos en secondes. Commence en Doux la première semaine si tu reprends le sport.</p></section>
+      return `<header class="stack"><p class="eyebrow">Sport · grade ${esc(L.name)}</p><h1>${esc(p.name)}</h1><p class="muted">${esc(p.focus)}. Échauffement de 3 min avant, retour au calme de 2 min après.</p></header>
+        <div class="card hero-card"><div class="row spread"><h2>Séance du ${esc(JOURS[parseYmd(t).getDay()])}</h2>${doneTag(DB.sport.done[t])}</div>${debtLine()}
+          <ol class="exlist">${p.list(L, t).map(([a, b]) => `<li><strong>${esc(a)}</strong><span class="muted small">${esc(b)}</span></li>`).join('')}</ol>
+          <button type="button" class="primary full" data-act="workout">Lancer · ${minutes(workoutSteps(t))} min</button></div>
+        <section class="section"><p class="eyebrow">Grade</p>
+          <div class="seg" role="group" aria-label="Grade">${Object.entries(LEVELS).map(([k, v]) => `<button type="button" data-lv="${k}" class="${cur == k ? 'on' : ''}">${v.name}</button>`).join('')}</div>
+          <div class="card"><h3>Test de grade</h3>
+            <p class="small">${next ? `Pour passer ${esc(LEVELS[cur + 1].name)} : ${next.push} pompes classiques en 2 minutes et ${next.plank} s de planche.` : 'Tu es au grade le plus haut. Refais le test de temps en temps pour suivre tes progrès.'}</p>
+            ${last ? `<p class="muted small">Dernier test le ${esc(fmtShort(last.date))} : ${last.push} pompes, ${last.plank} s de planche${last.promoted ? `, promu ${esc(LEVELS[last.promoted].name)}` : ''}.</p>` : ''}
+            <div class="row"><button type="button" data-act="testRun">Chrono 2 min</button><button type="button" class="primary" data-act="testSave">Noter mon résultat</button></div>
+            <p class="muted small">Le test rapporte 50 XP. Fais-le reposé, pas le jour de la pyramide.</p></div></section>
         <section class="section"><div class="row spread"><p class="eyebrow">Routine genou</p>${doneTag(DB.sport.knee[t])}</div>
           <div class="card knee-card">
             <div class="seg" role="group" aria-label="Niveau genou"><button type="button" data-kl="1" class="${DB.settings.kneeLevel == 1 ? 'on' : ''}">Niveau 1 · bases</button><button type="button" data-kl="2" class="${DB.settings.kneeLevel == 2 ? 'on' : ''}">Niveau 2 · stabilité</button></div>
@@ -507,21 +586,23 @@ Elan.register({
             <p class="note">Passe au niveau 2 seulement quand le niveau 1 se fait sans douleur et que le genou ne gonfle pas le lendemain, pendant 2 à 3 semaines. Une petite gêne pendant l'effort est acceptable, une douleur qui dure ou un gonflement non : reviens au niveau précédent.</p>
           </div></section>
         <section class="section"><p class="eyebrow">Ce que la séance évite</p>
-          <div class="card"><p class="small">Pas de course, de sauts, de pivots ni de squats profonds. Ce sont les mouvements que les protocoles réservent aux dernières phases, quand le genou est stable. Ils reviendront plus tard.</p></div></section>
+          <div class="card"><p class="small">Pas de burpees, de sauts, de jumping jacks, de course ni de pivots, même s'ils sont partout dans les séances militaires. Avec un ligament croisé rompu, ce sont les mouvements qui font lâcher le genou. Ils reviendront seulement quand un kiné aura validé.</p></div></section>
         <section class="section"><p class="eyebrow">Minuteur libre</p>
           <div class="card"><div class="grid3">
             <label for="fWork">Effort (s)<input id="fWork" type="number" inputmode="numeric" min="5" value="40"></label>
             <label for="fRest">Repos (s)<input id="fRest" type="number" inputmode="numeric" min="0" value="20"></label>
             <label for="fRounds">Tours<input id="fRounds" type="number" inputmode="numeric" min="1" value="8"></label></div>
             <button type="button" class="full" data-act="free">Lancer le minuteur</button></div></section>
-        <section class="section"><p class="eyebrow">Semaine</p><div class="card"><ol class="exlist">${WORKOUTS.map((x, d) => ({ x, d })).slice(1).concat([{ x: WORKOUTS[0], d: 0 }]).map(({ x, d }) => `<li><span><strong>${esc(JOURS[d][0].toUpperCase() + JOURS[d].slice(1))}</strong> · ${esc(x.name)}</span><span class="muted small">${esc(x.ex.map(k => X[k][0]).join(', '))}</span></li>`).join('')}</ol></div></section>
+        <section class="section"><p class="eyebrow">Semaine</p><div class="card"><ol class="exlist">${PLAN.map((x, d) => ({ x, d })).slice(1).concat([{ x: PLAN[0], d: 0 }]).map(({ x, d }) => `<li><span><strong>${esc(JOURS[d][0].toUpperCase() + JOURS[d].slice(1))}</strong> · ${esc(x.name)}</span><span class="muted small">${esc(x.focus)}</span></li>`).join('')}</ol></div></section>
         <section class="section sources"><p class="eyebrow">Sources de la routine genou</p><div class="card small"><ul class="stack" style="margin:0;padding-left:18px">${SOURCES.map(([n, u]) => `<li><a href="${u}" target="_blank" rel="noopener">${esc(n)}</a></li>`).join('')}</ul>
           <p class="muted">Ces programmes viennent de protocoles de kiné. Un kiné peut les adapter à ton genou.</p></div></section>`;
     },
     mount(el) {
       bind(el);
-      el.querySelectorAll('[data-int]').forEach(b => b.onclick = () => { DB.settings.intensity = b.dataset.int; save(); render(); });
+      el.querySelectorAll('[data-lv]').forEach(b => b.onclick = () => { DB.settings.calLevel = Number(b.dataset.lv); save(); render(); });
       el.querySelectorAll('[data-kl]').forEach(b => b.onclick = () => { DB.settings.kneeLevel = Number(b.dataset.kl); save(); render(); });
+      el.querySelectorAll('[data-act="testRun"]').forEach(b => b.onclick = startTest);
+      el.querySelectorAll('[data-act="testSave"]').forEach(b => b.onclick = testForm);
     }
   });
   function bind(el) {
@@ -629,9 +710,9 @@ Elan.register({
   function bind(el) {
     el.querySelectorAll('[data-rdone]').forEach(b => b.onclick = () => { const r = DB.reminders.find(x => x.id === b.dataset.rdone); if (!r) return; const d = b.dataset.d; if (r.done[d]) delete r.done[d]; else r.done[d] = true; save(); render(); });
     el.querySelectorAll('[data-redit]').forEach(b => b.onclick = () => reminderForm(DB.reminders.find(x => x.id === b.dataset.redit)));
-    el.querySelectorAll('[data-sdone]').forEach(b => b.onclick = () => { const g = DB.goals.find(x => x.id === b.dataset.sdone), s = g && g.steps.find(x => x.id === b.dataset.s); if (!s) return; s.done = !s.done; save(); render(); });
+    el.querySelectorAll('[data-sdone]').forEach(b => b.onclick = () => { const g = DB.goals.find(x => x.id === b.dataset.sdone), s = g && g.steps.find(x => x.id === b.dataset.s); if (!s) return; s.done = !s.done; if (s.done) s.doneAt = today(); else delete s.doneAt; save(); render(); });
     el.querySelectorAll('[data-gedit]').forEach(b => b.onclick = () => goalForm(DB.goals.find(x => x.id === b.dataset.gedit)));
-    el.querySelectorAll('[data-gdone]').forEach(b => b.onclick = () => { const g = DB.goals.find(x => x.id === b.dataset.gdone); g.done = true; save(); render(); });
+    el.querySelectorAll('[data-gdone]').forEach(b => b.onclick = () => { const g = DB.goals.find(x => x.id === b.dataset.gdone); g.done = true; g.doneAt = today(); save(); render(); });
     el.querySelectorAll('[data-gics]').forEach(b => b.onclick = () => { const g = DB.goals.find(x => x.id === b.dataset.gics); icsFor('Deadline : ' + g.title, g.deadline, '', 'none', g.notes); });
     el.querySelectorAll('[data-act="newR"]').forEach(b => b.onclick = () => reminderForm());
     el.querySelectorAll('[data-act="newG"]').forEach(b => b.onclick = () => goalForm());
@@ -666,6 +747,92 @@ Elan.register({
 })();
 
 /* ============================================================
+   MODULE : PROGRESSION (XP, niveau, quêtes du jour, série, Hard Mode)
+   Pas d'onglet : s'affiche en tête de « Aujourd'hui ».
+   L'XP est recalculée depuis l'historique : décocher une tâche retire l'XP gagnée.
+   ============================================================ */
+(function () {
+  const XP = { workout: 30, knee: 20, reminders: 15, allQuests: 20, step: 10, goal: 100, test: 50 };
+  const PENALTY = 50, DEBT = { push: 10, plank: 30 }, DEBT_MAX = { push: 50, plank: 180 };
+  const remindersOn = (d) => DB.reminders.filter(r => Elan.occursOn(r, d));
+  function quests(d) {
+    const q = [
+      { label: 'Séance de sport', xp: XP.workout, ok: !!DB.sport.done[d], act: 'workout' },
+      { label: 'Routine genou', xp: XP.knee, ok: !!DB.sport.knee[d], act: 'knee' }
+    ];
+    const rs = remindersOn(d);
+    if (rs.length) q.push({ label: `Rappels du jour (${rs.filter(r => r.done[d]).length}/${rs.length})`, xp: XP.reminders, ok: rs.every(r => r.done[d]) });
+    return q;
+  }
+  const complete = (d) => quests(d).every(q => q.ok);
+  function dayXp(d) {
+    let x = 0;
+    quests(d).forEach(q => { if (q.ok) x += q.xp; });
+    if (complete(d)) x += XP.allQuests;
+    let steps = 0; DB.goals.forEach(g => (g.steps || []).forEach(s => { if (s.done && s.doneAt === d) steps++; }));
+    x += Math.min(3, steps) * XP.step;
+    x += DB.goals.filter(g => g.done && g.doneAt === d).length * XP.goal;
+    if (DB.sport.tests.some(t => t.date === d)) x += XP.test;
+    return x;
+  }
+  function totalXp() {
+    const days = new Set([...Object.keys(DB.sport.done), ...Object.keys(DB.sport.knee)]);
+    DB.reminders.forEach(r => Object.keys(r.done || {}).forEach(d => days.add(d)));
+    DB.goals.forEach(g => { if (g.doneAt) days.add(g.doneAt); (g.steps || []).forEach(s => { if (s.doneAt) days.add(s.doneAt); }); });
+    DB.sport.tests.forEach(t => days.add(t.date));
+    let x = 0; days.forEach(d => { x += dayXp(d); });
+    Object.values(DB.prog.penalties).forEach(p => { x -= p; });
+    return Math.max(0, x);
+  }
+  const need = (L) => 100 + 25 * (L - 1); // XP pour passer du niveau L au suivant
+  function levelOf(xp) { let L = 1, base = 0; while (xp >= base + need(L)) { base += need(L); L++; } return { L, into: xp - base, need: need(L) }; }
+  function streak() { const t = today(); let d = complete(t) ? t : addDays(t, -1), n = 0; while (n < 3650 && complete(d)) { n++; d = addDays(d, -1); } return n; }
+  // Bilan des jours écoulés depuis la dernière ouverture : en Hard Mode, chaque jour raté coûte de l'XP et ajoute une dette.
+  Elan.newDay = function () {
+    const P = DB.prog, t = today();
+    let d = addDays(P.lastEval || addDays(t, -1), 1);
+    if (daysBetween(d, t) > 60) d = addDays(t, -60);
+    const missed = [];
+    for (; d < t; d = addDays(d, 1)) {
+      if (d < P.start || P.penalties[d] != null || complete(d)) continue;
+      missed.push(d);
+      if (P.hard) {
+        P.penalties[d] = PENALTY;
+        P.debt.push = Math.min(DEBT_MAX.push, P.debt.push + DEBT.push);
+        P.debt.plank = Math.min(DEBT_MAX.plank, P.debt.plank + DEBT.plank);
+      }
+    }
+    P.lastEval = addDays(t, -1);
+    if (missed.length) P.notice = { days: missed.concat(P.notice ? P.notice.days : []).sort(), hard: P.hard };
+  };
+
+  Elan.register({
+    id: 'prog', label: 'Progression', tab: false, todayOrder: 10,
+    today(t) {
+      const P = DB.prog, xp = totalXp(), lv = levelOf(xp), q = quests(t), nOk = q.filter(x => x.ok).length, left = q.length - nOk;
+      let notice = '';
+      if (P.notice) {
+        const n = P.notice, days = n.days.map(fmtShort).join(', ');
+        notice = `<div class="card hard-card"><p class="eyebrow" style="color:var(--warn)">${n.hard ? 'Hard Mode' : 'Série perdue'}</p>
+          <p>${n.days.length > 1 ? 'Quêtes ratées les' : 'Quêtes ratées le'} ${esc(days.replace(/\.$/, ''))}.${n.hard ? ` −${PENALTY * n.days.length} XP, série remise à zéro, et ta prochaine séance commence par la dette.` : ' Ta série repart de zéro.'}</p>
+          <button type="button" class="ghost" data-act="ackNotice">Compris</button></div>`;
+      }
+      return `<section class="section">${notice}
+        <div class="card"><div class="row spread" style="align-items:flex-end"><div><p class="eyebrow">Niveau</p><p class="lvl">${lv.L}</p></div><div style="text-align:right"><p class="eyebrow">Série</p><p class="lvl">${streak()} j</p></div></div>
+          <div class="bar xp" role="progressbar" aria-label="XP vers le niveau suivant" aria-valuenow="${lv.into}" aria-valuemin="0" aria-valuemax="${lv.need}"><i style="width:${(lv.into / lv.need * 100).toFixed(1)}%"></i></div>
+          <p class="muted small">${lv.into} / ${lv.need} XP avant le niveau ${lv.L + 1} · ${xp} XP au total</p></div>
+        <div class="card"><div class="row spread"><h3>Quêtes du jour</h3><span class="pill ${left ? '' : 'ok'}">${nOk}/${q.length}</span></div>
+          <div>${q.map(x => `<div class="item ${x.ok ? 'done' : ''}"><span class="check ${x.ok ? 'on' : ''}" aria-hidden="true">${x.ok ? ICON.check : ''}</span><div><p class="t">${esc(x.label)}</p><p class="muted small">+${x.xp} XP</p></div>${!x.ok && x.act ? `<button type="button" class="link" data-act="${x.act}">Lancer</button>` : '<span></span>'}</div>`).join('')}</div>
+          <p class="muted small">${left ? `Toutes les quêtes : +${XP.allQuests} XP de bonus.` : `Journée validée : +${XP.allQuests} XP de bonus.`} Chaque étape d'objectif cochée : +${XP.step} XP. Objectif atteint : +${XP.goal} XP.</p>
+          ${P.hard && left ? `<p class="small" style="color:var(--warn);font-weight:700">Hard Mode : s'il en reste à minuit, −${PENALTY} XP, série à zéro et ${DEBT.push} pompes plus ${DEBT.plank} s de planche en dette.</p>` : ''}</div></section>`;
+    },
+    mountToday(el) {
+      el.querySelectorAll('[data-act="ackNotice"]').forEach(b => b.onclick = () => { DB.prog.notice = null; save(); render(); });
+    }
+  });
+})();
+
+/* ============================================================
    MODULE : RÉGLAGES (son, voix, sauvegarde)
    ============================================================ */
 Elan.register({
@@ -677,6 +844,9 @@ Elan.register({
         <label class="row spread" for="sSound" style="display:flex">Bips du minuteur<input id="sSound" type="checkbox" ${s.sound ? 'checked' : ''} style="width:auto;min-height:0"></label>
         <label class="row spread" for="sVoice" style="display:flex">Annonce vocale des exercices<input id="sVoice" type="checkbox" ${s.voice ? 'checked' : ''} style="width:auto;min-height:0"></label>
         <p class="muted small">Sur iPhone, coupe le mode silencieux pour entendre les bips.</p></div></section>
+      <section class="section"><h2>Progression</h2><div class="card">
+        <label class="row spread" for="sHard" style="display:flex">Hard Mode<input id="sHard" type="checkbox" ${DB.prog.hard ? 'checked' : ''} style="width:auto;min-height:0"></label>
+        <p class="muted small">Quêtes du jour pas finies à minuit : −50 XP, série remise à zéro, et 10 pompes plus 30 s de planche ajoutées au début de la séance suivante.</p></div></section>
       <section class="section"><h2>Sauvegarde</h2><div class="card">
         <p class="small">Tes données restent sur ce téléphone. Copie une sauvegarde de temps en temps (dans Notes par exemple) pour ne rien perdre.</p>
         <button type="button" id="bCopy">Copier la sauvegarde</button>
@@ -685,11 +855,12 @@ Elan.register({
         <p class="small" id="bMsg" role="status"></p></div></section>
       <section class="section"><h2>Remettre à zéro</h2><div class="card"><p class="small muted">Efface tout et remet les exemples du départ.</p>
         <button type="button" id="bReset" class="ghost danger">Tout effacer</button><button type="button" id="bResetOk" class="danger" hidden>Confirmer l'effacement</button></div></section>
-      <p class="muted small">Élan · version 0.1 · les modules (langue, etc.) s'ajouteront ici au fil du temps.</p>`;
+      <p class="muted small">Élan · version 0.2 · les modules (langue, etc.) s'ajouteront ici au fil du temps.</p>`;
   },
   mount(el) {
     $('#sSound').onchange = (e) => { DB.settings.sound = e.target.checked; save(); };
     $('#sVoice').onchange = (e) => { DB.settings.voice = e.target.checked; save(); };
+    $('#sHard').onchange = (e) => { DB.prog.hard = e.target.checked; save(); };
     const msg = (t) => { $('#bMsg').textContent = t; };
     $('#bCopy').onclick = () => { const txt = JSON.stringify(DB); navigator.clipboard && navigator.clipboard.writeText(txt).then(() => msg('Sauvegarde copiée. Colle-la dans Notes.'), () => { $('#bImport').value = txt; $('#bImport').select(); msg('Copie automatique refusée : le texte est sélectionné ci-dessus, copie-le.'); }); };
     $('#bRestore').onclick = () => { try { const d = JSON.parse($('#bImport').value); if (!d || !d.goals || !d.reminders) throw 0; try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e2) {} DB = d; load(); DB = d.goals ? Object.assign(DB, { goals: d.goals, reminders: d.reminders }) : DB; save(); msg('Sauvegarde restaurée.'); render(); } catch (e) { msg('Ce texte n\'est pas une sauvegarde Élan valide. Vérifie que tu l\'as collé en entier.'); } };
@@ -699,10 +870,10 @@ Elan.register({
 });
 
 /* ---------- Démarrage ---------- */
-load(); save(); render();
+load(); Elan.newDay(); save(); render();
 // Recalcule la vue si la journée change pendant que l'appli est ouverte.
 let lastDay = today();
-document.addEventListener('visibilitychange', () => { if (!document.hidden && today() !== lastDay) { lastDay = today(); if ($('#runner').hidden) render(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && today() !== lastDay) { lastDay = today(); Elan.newDay(); save(); if ($('#runner').hidden) render(); } });
 // Mode hors ligne quand l'appli est installée (ignoré dans un aperçu).
 if ('serviceWorker' in navigator && !inFrame && location.protocol === 'https:') { navigator.serviceWorker.register('sw.js').catch(() => {}); }
 })();
